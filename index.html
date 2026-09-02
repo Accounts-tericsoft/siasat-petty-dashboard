@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Siasat Petty Cash Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#ffffff; --ink:#1f2430; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2f5db0; --good:#2e7d5b; --warn:#b4690e; --bad:#b23b3b;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.10);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:26px 28px 18px;border-bottom:1px solid var(--line);background:var(--card)}
+  header h1{margin:0;font-size:20px;letter-spacing:.2px}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  main{max-width:1240px;margin:0 auto;padding:22px 20px 60px}
+  section{margin-top:26px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 12px;font-weight:600}
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi .label{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .kpi .value{font-size:24px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .cols-2{grid-template-columns:1fr 1fr}
+  .cols-3{grid-template-columns:2fr 1fr}
+  @media (max-width:900px){.cols-2,.cols-3{grid-template-columns:1fr}}
+  .chart-wrap{position:relative;height:320px}
+  .chart-wrap.tall{height:420px}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td.num,th.num{text-align:right}
+  tbody tr:hover{background:#fafafa}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .pill.good{background:#e6f4ec;color:var(--good)}
+  .pill.warn{background:#fbf0e0;color:var(--warn)}
+  .pill.bad{background:#f7e6e6;color:var(--bad)}
+  .note{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;margin-top:10px}
+  .note b{color:var(--ink)}
+  ul.tight{margin:6px 0 0;padding-left:18px}
+  ul.tight li{margin:4px 0}
+  .flag{border-left-color:var(--warn)}
+  .foot{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
+  .spark{display:flex;align-items:flex-end;gap:2px;height:38px}
+  .spark i{flex:1;background:var(--accent);opacity:.55;border-radius:1px;min-height:2px}
+  .mrow{display:grid;grid-template-columns:70px 1fr 90px;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .mrow:last-child{border-bottom:0}
+  .mrow b{font-variant-numeric:tabular-nums}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .tabs button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--muted)}
+  .tabs button.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>Siasat Petty Cash Dashboard</h1>
+  <p>Office (Siasat) &amp; MJ petty-cash ledger &middot; Jan&ndash;Sep 2026 &middot; 3,563 entries &middot; source: <i>siasat petty</i> Google Sheet. Last built <span id="built"></span>.</p>
+</header>
+<main>
+
+  <section>
+    <h2>Headline</h2>
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">Spend Jan&ndash;Aug</div><div class="value">&#8377;37.81 L</div><div class="sub">3,549 entries &middot; &#8377;1,065 avg/entry</div></div>
+      <div class="card kpi"><div class="label">Recent monthly burn</div><div class="value">&#8377;2.80 L</div><div class="sub">Apr&ndash;Aug avg (was &#8377;7.93 L in Q1)</div></div>
+      <div class="card kpi"><div class="label">Committed / recurring</div><div class="value">&#8377;1.56 L<span style="font-size:13px;font-weight:500">/mo</span></div><div class="sub">~56% of spend is pre-approved standing items</div></div>
+      <div class="card kpi"><div class="label">Cash in hand (31 Aug)</div><div class="value">&#8377;57,876</div><div class="sub">Opened 1.39 L + 2.50 L in &minus; 3.31 L out</div></div>
+      <div class="card kpi"><div class="label">Discretionary to review</div><div class="value">&#8377;1.37 L<span style="font-size:13px;font-weight:500">/mo</span></div><div class="sub">Aug "dynamic" spend &mdash; where scrutiny belongs</div></div>
+    </div>
+    <div class="note"><b>The one thing to notice:</b> petty-cash spend ran <b>&#8377;7.9 L/month in Jan&ndash;Mar</b> and dropped to <b>&#8377;2.8 L/month from April</b> &mdash; a ~65% fall. Jan&ndash;Feb carried heavy Construction, Paint (&ldquo;Color World&rdquo;), furniture and electronics lines, so most of the spike looks like a <b>one-time office refurbishment</b> rather than a data error. Worth confirming against approved capex.</div>
+  </section>
+
+  <section>
+    <h2>Monthly spend</h2>
+    <div class="card"><div class="chart-wrap"><canvas id="cMonthly"></canvas></div></div>
+  </section>
+
+  <section>
+    <h2>Where the money goes</h2>
+    <div class="grid cols-3">
+      <div class="card"><div class="chart-wrap tall"><canvas id="cStack"></canvas></div></div>
+      <div class="card"><div class="chart-wrap tall"><canvas id="cDonut"></canvas></div></div>
+    </div>
+    <div class="note flag"><b>Petty cash is doing payroll's job.</b> &#8377;11.2 L of the &#8377;37.9 L (30%) is <b>Salary</b> &mdash; staff overtime, one-day wages, driver allowances. Another &#8377;6.0 L is <b>Charity / medical aid</b>, much of it in &#8377;5,000&ndash;&#8377;10,000 cash payments. Both are large, repeating, and better run through bank transfer / payroll for audit trail and TDS.</div>
+  </section>
+
+  <section>
+    <h2>Recurring vs one-off</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <div class="chart-wrap"><canvas id="cOcc"></canvas></div>
+        <p style="color:var(--muted);font-size:12px;margin:10px 2px 0">The <b>Occurrence</b> tag (recurring / dynamic) only starts in <b>Aug 2026</b>. Aug split: &#8377;1.94 L recurring (58%) vs &#8377;1.37 L dynamic (42%). Backfilling earlier months, or accepting Aug as the baseline, is a decision for the streamlining plan.</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:8px">Standing obligations (from &ldquo;comments&rdquo; tab)</h2>
+        <p style="color:var(--muted);font-size:12px;margin:0 0 8px">~50 pre-agreed items, monthly-equivalent <b>&#8377;1,55,739</b>. These need no line-by-line approval &mdash; only exception review.</p>
+        <div style="max-height:300px;overflow:auto"><table id="tRecurring"><thead><tr><th>Payee</th><th>For</th><th>Cadence</th><th class="num">&#8377;/mo</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Daily rhythm</h2>
+    <div class="card">
+      <div id="sparks"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Top payees &amp; largest entries</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2 style="margin-bottom:8px">Top payees (name-normalised)</h2>
+        <div style="max-height:360px;overflow:auto"><table id="tPayees"><thead><tr><th>Payee</th><th class="num">Entries</th><th class="num">Total &#8377;</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:8px">30 largest single entries</h2>
+        <div style="max-height:360px;overflow:auto"><table id="tBig"><thead><tr><th>Date</th><th>Payee</th><th>Purpose</th><th class="num">&#8377;</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Data quality &mdash; fix before next month</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <h2 style="margin-bottom:8px">Category master needs freezing</h2>
+        <table id="tCatDq"><thead><tr><th>Entered as</th><th class="num">Rows</th><th>Should be</th></tr></thead><tbody></tbody></table>
+        <p style="color:var(--muted);font-size:12px;margin-top:10px">Same category typed 3 ways splits every report. Lock an 11-item dropdown list; no free text.</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:8px">Action list</h2>
+        <ul class="tight">
+          <li><b>One category list, one payee list.</b> Give the Siasat office a data-validation sheet &mdash; pick from dropdown, never type. Merge the variants at right.</li>
+          <li><b>Monthly reconciliation check.</b> Opening + deposits &minus; spend = closing. Aug ties exactly (1,38,998 + 2,50,000 &minus; 3,31,122 = 57,876). Keep this as a sign-off every month.</li>
+          <li><b>Review only &ldquo;dynamic&rdquo; spend.</b> The &#8377;1.56 L recurring base is pre-approved; focus approvals on the ~&#8377;1.3&ndash;1.4 L/month of one-off items.</li>
+          <li><b>Move Salary &amp; Charity out of cash.</b> Staff overtime (&#8377;50k/mo) and medical-aid payments should go by bank transfer / payroll, not petty cash.</li>
+          <li><b>Turn on the Occurrence tag for every month</b>, not just Aug onward, so recurring vs one-off is measurable across the year.</li>
+          <li><b>Confirm the Q1 refurbishment.</b> Match Jan&ndash;Mar Construction / Paint / furniture lines to an approved budget; if unapproved, that is the first place to tighten.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note flag"><b>Payee names are entered inconsistently too</b> &mdash; e.g. <i>staff / Staff</i>, <i>Md Imran / md imran</i>, <i>Murshid / Murshad</i>, <i>choto / chotu / Choto</i>, <i>Laddu / laddu</i>, <i>KVS Kamalakar DIPR</i> (3 spellings), <i>Arfath Jogipet / arfat - jogipet</i>. A payee master fixes this and makes vendor-wise totals trustworthy.</div>
+  </section>
+
+  <div class="foot">Built from the &ldquo;siasat petty&rdquo; Google Sheet (tabs Jan26&ndash;Sep26). Figures in Indian rupees. Sep 2026 is a partial month (14 entries) and is shown for continuity only.</div>
+</main>
+
+<script>
+const DATA = {
+  months:[
+    {k:"Jan26",m:"Jan",n:626,tot:852279},{k:"Feb26",m:"Feb",n:543,tot:770701},
+    {k:"Mar26",m:"Mar",n:642,tot:755826},{k:"Apr26",m:"Apr",n:411,tot:316666},
+    {k:"May26",m:"May",n:278,tot:227152},{k:"June26",m:"Jun",n:331,tot:265587},
+    {k:"July26",m:"Jul",n:356,tot:261930},{k:"Aug26",m:"Aug",n:362,tot:331122},
+    {k:"Sep26",m:"Sep",n:14,tot:7462}
+  ],
+  cats:["Salary","Office Expenses","Charity","Refreshment","General Service","Travel","Staff welfare","Repair","Delivery","Construction","Housekeeping"],
+  catTotals:[["Salary",1122978],["Office Expenses",1033907],["Charity",601920],["Refreshment",300011],["General Service",264235],["Travel",187286],["Staff welfare",91283],["Repair",80500],["Delivery",64851],["Construction",33300],["Housekeeping",8454]],
+  matrix:[
+    {m:"Jan",Travel:35381,Refreshment:115948,Delivery:6000,"Office Expenses":357418,Charity:100160,Salary:153490,"General Service":73632,Repair:10250,Construction:0,"Staff welfare":0,Housekeeping:0},
+    {m:"Feb",Travel:41133,Refreshment:64681,Delivery:8506,"Office Expenses":162623,Charity:101130,Salary:227319,"General Service":79449,Repair:18200,Construction:33300,"Staff welfare":34360,Housekeeping:0},
+    {m:"Mar",Travel:21581,Refreshment:26065,Delivery:5760,"Office Expenses":139969,Charity:186910,Salary:263205,"General Service":31459,Repair:15500,Construction:0,"Staff welfare":56923,Housekeeping:8454},
+    {m:"Apr",Travel:14775,Refreshment:28634,Delivery:11408,"Office Expenses":85569,Charity:49300,Salary:91825,"General Service":21209,Repair:13946,Construction:0,"Staff welfare":0,Housekeeping:0},
+    {m:"May",Travel:8883,Refreshment:12260,Delivery:9029,"Office Expenses":37890,Charity:37330,Salary:100701,"General Service":18059,Repair:3000,Construction:0,"Staff welfare":0,Housekeeping:0},
+    {m:"Jun",Travel:17179,Refreshment:10205,Delivery:6848,"Office Expenses":70266,Charity:45210,Salary:95570,"General Service":11909,Repair:8400,Construction:0,"Staff welfare":0,Housekeeping:0},
+    {m:"Jul",Travel:27995,Refreshment:13864,Delivery:8780,"Office Expenses":81032,Charity:38600,Salary:72800,"General Service":14359,Repair:4500,Construction:0,"Staff welfare":0,Housekeeping:0},
+    {m:"Aug",Travel:19589,Refreshment:28284,Delivery:8400,"Office Expenses":95938,Charity:43280,Salary:115268,"General Service":13659,Repair:6704,Construction:0,"Staff welfare":0,Housekeeping:0},
+    {m:"Sep",Travel:770,Refreshment:70,Delivery:120,"Office Expenses":3202,Charity:0,Salary:2800,"General Service":500,Repair:0,Construction:0,"Staff welfare":0,Housekeeping:0}
+  ],
+  daily:{
+    Jan:[58040,27847,15284,54854,31080,16006,20959,22714,26800,35869,12660,15108,47631,47420,43452,56752,19445,37669,18363,25635,34947,47469,25903,37109,73263],
+    Feb:[73900,34883,34947,35433,24060,13184,15755,31412,18223,13926,25295,12409,48005,35941,32642,21566,23037,25591,22970,44989,20154,104212,58167],
+    Mar:[63370,58745,39071,64933,17416,36556,33056,24110,26617,17413,13208,14913,13476,81929,23340,3415,9978,7855,3394,12140,2375,11639,28469,11943,136465],
+    Apr:[7485,19939,9510,23979,47537,9705,24940,12446,23331,33511,16561,2848,1835,10760,3026,7930,4996,1365,4861,3949,5126,12219,2381,9397,3275,13754],
+    May:[24285,42644,20509,5730,3041,15896,11947,13058,2050,6960,651,2409,3850,3690,944,335,18705,398,7260,5551,10990,16554,590,9105],
+    Jun:[13225,30214,35275,17200,8443,8605,4725,7735,3040,631,24363,17958,2780,3150,3609,3630,12660,7280,5688,10729,1007,8455,13715,21470],
+    Jul:[23002,4619,3220,17238,9224,12980,18831,4112,15740,19439,8132,5220,7806,14211,2132,8796,9230,3537,3339,5380,5102,6532,12881,6507,3925,17555,13240],
+    Aug:[38259,22318,5663,28126,12789,19605,10236,9721,8065,968,2472,20792,12401,31228,22125,3041,712,18190,19080,16612,5405,3329,7840,12145],
+    Sep:[7462]
+  },
+  occ:[{m:"Aug",recurring:193691,dynamic:137431},{m:"Sep",recurring:3782,dynamic:3680}],
+  payees:[
+    ["staff",259805,52],["haji",101104,54],["Md Imran",92540,14],["Murshid",71900,150],["choto",61434,109],
+    ["Laddu",53012,120],["Md Fayyaz",52500,18],["Staff ps",51705,7],["madrasa",51700,111],["office boy",50713,108],
+    ["fayaz",43890,18],["Staff ts",40615,12],["Altaf Khan",40000,6],["KVS Kamalakar DIPR",92120,18],["Intesar",18569,174],
+    ["Qasim",24900,6],["mm muqtadir",21500,13],["S S Computers",20800,8],["Raju",20360,9],["Fatima begum",20000,2],
+    ["Arfath Jogipet",20000,2],["Asrar Ahmed",20000,2],["Chota khan viqrabad",20000,4],["Syed Mazher Ali",18900,2],
+    ["Anil Electronics",18200,6],["Mahmood Ali Khan Shamshabad",18000,3],["osman",17360,36],["Naseer",31735,47],
+    ["omer",16320,110],["Nayeem Wajahat",15500,10]
+  ],
+  big:[
+    ["2026-03-17","staff","oneday wages",38175],["2026-08-18","Staff ps","Overtime 15th August",20800],
+    ["2026-01-17","staff","overtime",19905],["2026-06-04","Staff ps","Overtime",19575],
+    ["2026-02-18","staff","overtime",19365],["2026-05-04","staff","oneday wages",18875],
+    ["2026-01-28","staff","overtime",16655],["2026-03-28","fayaz","driver (bonus)",15000],
+    ["2026-03-17","staff","oneday wages",12205],["2026-01-16","Color World","Paint",11420],
+    ["2026-08-19","Haji","Lunch for dist reporters meeting",11000],["2026-08-25","KVS Kamalakar DIPR","Govt bills",10650],
+    ["2026-01-16","Fancy Computers","Radium Work",10500],["2026-01-01","Syed Mazher Ali Photographer","Photographer",10000],
+    ["2026-01-05","Arfath Jogipet","charity",10000],["2026-01-09","Asrar Ahmed","Pilot Fee (charity)",10000],
+    ["2026-01-30","Md Shakeel","Article Writing",10000],["2026-02-02","Md Mazher Photographer","Article Writing",10000],
+    ["2026-02-05","arfath","medical aids",10000],["2026-02-17","Asrar Ahmed","charity",10000],
+    ["2026-02-27","Syed Mazher Ali","allowance",10000],["2026-03-03","Fatima begum","charity (x2)",20000],
+    ["2026-03-05","arfat - jogipet","charity",10000],["2026-03-05","farooq shakeel","translation charges",10000],
+    ["2026-03-09","Asrar Ahmed","Pilot Training - Charity",10000],["2026-03-31","syed nazar uddin ali","photographer allowance",10000],
+    ["2026-04-06","arfat - jogipet","charity",10000],["2026-04-08","md imran","driver - bonus (x2)",20000],
+    ["2026-04-10","syed yusuf","driver",10000],["2026-05-21","Asrar Ahmed","Pilot training fees",10000]
+  ],
+  recurring:[
+    ["staff","overtime","every month",50000],["Mahmood Ali Khan Shamshabad","allowance","every month",9000],
+    ["Kvs kamlakar dipr","Bills submitting","every month",7000],["Md shareef driver","allowance","every month",5000],
+    ["Rizwana begum","Charity","every month",5000],["Chakra filling","diesel","2 months / 10k",5000],
+    ["Vaishnavi electronics","electronics items","every month",5000],["Asrar ahmed","Pilot fees","every month",5000],
+    ["Intesar","Petrol","everyday",4650],["MA muqtadir","Allowance","every week",4000],
+    ["Sambhashiva","Parcel sending","everyday",3720],["Sayeed mali lakdi ka pul","allowance","every month",3000],
+    ["Raju","Water fatehmaidan","every month",3000],["Dist agents","Money orders","every month",2865],
+    ["mk agencies","ac repair","every month",2500],["Zaheeruddin","Proof reading ads","every week",2400],
+    ["Saderuddin","Proof reading ads","every week",2400],["MA muqtadir","Allowance","every week",2400],
+    ["Gagamma","Allowance","every month",2000],["Ms nisha","Medical aid","every month",2000],
+    ["Ms usha","Medical aid","every month",2000],["Md fayyaz driver","Allowance","every week",2000],
+    ["Syed qayam ali","Allowance","every month",2000],["Naseer","postal stamps","every month",2000],
+    ["Shoaib","Sugar","everyday",1550],["Dept of post","Postal charges","everyday",1550],
+    ["Reflex buisness system","Xerox charges","every month",1500],["Elect elevator services","Lift servicing","every month",1500],
+    ["Choto","Water lakdi ka pul","every week",1440],["Hindi milap","Parcel sending charges","every month",1300],
+    ["Syed Hamid hassan","Petrol","every week",1200],["Haji","Tiles cleaner","every month",1200],
+    ["Chinna","Mch labour charges","every month",1200],["SS computers","Epson head cleaner","every month",1200],
+    ["Md inamul haq mouzam masjid","Charity","every month",1000],["Bhagyanager communication","Cable","every month",1000],
+    ["T vijay singh","Newspapers","every month",900],["Vaishnavi electronics","Dell mouse","every month",700],
+    ["Omer","Parking","everyday",620],["Md shareef driver / Pradeep","allowance","every month",500],
+    ["Trakon courier","Courier charges","every month",450],["Thursday charity","Thursday charity","every Thursday",400],
+    ["Muskaan enterprises","repair","every month",500],["Srinu","Medicine","every month",500],
+    ["Reddy Xerox","Spiral binding","every 2 months",500],["Shanti and co","Rubber stamp","2 months / 400",200],
+    ["Mohsin electrician","Drill machine rent","every 5 months",200],["Reddy Brothers","tv section item","every 5 months",150],
+    ["Dept of post","MO commission","every month",144]
+  ],
+  catDq:[
+    ["Office expenses",335,"Office Expenses"],["Office Expenses",323,"Office Expenses"],["office expenses",171,"Office Expenses"],
+    ["charity",235,"Charity"],["Charity",124,"Charity"],
+    ["Salary",507,"Salary"],["salary",1,"Salary"],
+    ["General Service",87,"General Service"]
+  ]
+};
+
+const INR = n => "₹" + Math.round(n).toLocaleString("en-IN");
+const INRk = n => "₹" + (n/100000).toFixed(2) + " L";
+const CATCOLOR = {
+  "Salary":"#3f6fb5","Office Expenses":"#e08a4c","Charity":"#4c9d74","Refreshment":"#c0504d",
+  "General Service":"#8073b0","Travel":"#8a7060","Staff welfare":"#d38bc4","Repair":"#8f8f8f",
+  "Delivery":"#c9b56f","Construction":"#5fb4c9","Housekeeping":"#a978a6"
+};
+document.getElementById("built").textContent = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.color = "#6b7280";
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.boxHeight = 12;
+
+/* Monthly spend: bars + entry-count line */
+new Chart(document.getElementById("cMonthly"),{
+  data:{
+    labels:DATA.months.map(x=>x.m),
+    datasets:[
+      {type:"bar",label:"Spend (₹)",data:DATA.months.map(x=>x.tot),backgroundColor:"#3f6fb5",borderRadius:4,yAxisID:"y",order:2},
+      {type:"line",label:"Entries",data:DATA.months.map(x=>x.n),borderColor:"#b4690e",backgroundColor:"#b4690e",tension:.3,yAxisID:"y1",order:1,pointRadius:3}
+    ]
+  },
+  options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+    plugins:{tooltip:{callbacks:{label:c=>c.dataset.type==="bar"?"Spend "+INR(c.raw):"Entries "+c.raw}}},
+    scales:{
+      y:{position:"left",ticks:{callback:v=>"₹"+(v/100000)+"L"},title:{display:true,text:"Monthly spend"}},
+      y1:{position:"right",grid:{drawOnChartArea:false},title:{display:true,text:"Entry count"}}
+    }}
+});
+
+/* Stacked category by month */
+new Chart(document.getElementById("cStack"),{
+  type:"bar",
+  data:{
+    labels:DATA.matrix.map(x=>x.m),
+    datasets:DATA.cats.map(cat=>({
+      label:cat,data:DATA.matrix.map(r=>r[cat]||0),backgroundColor:CATCOLOR[cat],borderWidth:0
+    }))
+  },
+  options:{maintainAspectRatio:false,
+    plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+" "+INR(c.raw)}}},
+    scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>"₹"+(v/100000)+"L"}}}}
+});
+
+/* Donut overall */
+new Chart(document.getElementById("cDonut"),{
+  type:"doughnut",
+  data:{
+    labels:DATA.catTotals.map(x=>x[0]),
+    datasets:[{data:DATA.catTotals.map(x=>x[1]),backgroundColor:DATA.catTotals.map(x=>CATCOLOR[x[0]]),borderWidth:1,borderColor:"#fff"}]
+  },
+  options:{maintainAspectRatio:false,cutout:"58%",
+    plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.label+" "+INR(c.raw)+" ("+(c.raw/3788725*100).toFixed(0)+"%)"}}}}
+});
+
+/* Occurrence */
+new Chart(document.getElementById("cOcc"),{
+  type:"bar",
+  data:{
+    labels:DATA.occ.map(x=>x.m),
+    datasets:[
+      {label:"Recurring",data:DATA.occ.map(x=>x.recurring),backgroundColor:"#3f6fb5"},
+      {label:"Dynamic (one-off)",data:DATA.occ.map(x=>x.dynamic),backgroundColor:"#e08a4c"}
+    ]
+  },
+  options:{maintainAspectRatio:false,
+    plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+" "+INR(c.raw)}}},
+    scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>"₹"+(v/1000)+"k"}}}}
+});
+
+/* Sparklines */
+const sp = document.getElementById("sparks");
+DATA.months.forEach(mo=>{
+  const arr = DATA.daily[mo.m]||[];
+  const max = Math.max(...arr,1);
+  const el = document.createElement("div");
+  el.className = "mrow";
+  el.innerHTML = `<span>${mo.m} 26</span>
+    <div class="spark">${arr.map(v=>`<i style="height:${Math.max(4,v/max*38)}px" title="${INR(v)}"></i>`).join("")}</div>
+    <b style="text-align:right">${INR(mo.tot)}</b>`;
+  sp.appendChild(el);
+});
+
+/* Tables */
+function fill(id, rows){
+  const tb = document.querySelector(id+" tbody");
+  tb.innerHTML = rows.join("");
+}
+fill("#tRecurring", DATA.recurring.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="num">${r[3].toLocaleString("en-IN")}</td></tr>`));
+fill("#tPayees", DATA.payees.sort((a,b)=>b[1]-a[1]).map(r=>`<tr><td>${r[0]}</td><td class="num">${r[2]}</td><td class="num">${r[1].toLocaleString("en-IN")}</td></tr>`));
+fill("#tBig", DATA.big.map(r=>`<tr><td>${r[0].slice(5)}</td><td>${r[1]}</td><td>${r[2]}</td><td class="num">${r[3].toLocaleString("en-IN")}</td></tr>`));
+fill("#tCatDq", DATA.catDq.map(r=>{
+  const bad = r[0]!==r[2];
+  return `<tr><td>${bad?`<span class="pill warn">${r[0]}</span>`:`<span class="pill good">${r[0]}</span>`}</td><td class="num">${r[1]}</td><td>${r[2]}</td></tr>`;
+}));
+</script>
+</body>
+</html>
