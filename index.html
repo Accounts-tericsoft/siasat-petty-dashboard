@@ -248,6 +248,43 @@ const INR = n => "\u20b9" + Math.round(n).toLocaleString("en-IN");
 const LAKH = n => "\u20b9" + (n/1e5).toFixed(2) + " L";
 const norm = w => w.trim().toLowerCase().replace(/\s+/g," ");
 
+// Collapse the many spellings of the same payee into one canonical name.
+function canonPayee(raw){
+  let s = norm(raw)
+    .replace(/[.,]/g," ").replace(/\s+/g," ").trim()
+    .replace(/ (driver|tv|dak section|dak|section)( and guard)?$/,"")
+    .replace(/ (c\/o|for) .*$/,"")
+    .replace(/^(md|mohd|mohammed|mr|mrs|ms|smt)\.? /,"")
+    .trim();
+  const RULES = [
+    [/^sta?f+f?( ?p ?t| ?p ?s| ?t ?s| ?pt| ?ps| ?ts| ?p| ?t| ?s)?$/,"Staff"],
+    [/^staff toward/,"Staff"],
+    [/^chh?ot[ou]$/,"Choto"],
+    [/^chotu /,"Choto"],
+    [/mursh(a|i)d/,"Murshid"],
+    [/fayy?az/,"Md Fayyaz"],
+    [/^imran( driver)?$/,"Md Imran"],
+    [/^office (boy|guy)$/,"Office boy"],
+    [/kvs.*(kaml|kamal)akar/,"KVS Kamalakar DIPR"],
+    [/^samb(a|ha).*(sh?iva|siva)/,"Sambhashiva"],
+    [/^sambhashiva$/,"Sambhashiva"],
+    [/^(intesar|itesar|ntesar|intasar|inteshar)$/,"Intesar"],
+    [/muqtad(i|e)r|muqtadar|muqtader/,"MA Muqtadir"],
+    [/^naseer$/,"Naseer"],
+    [/^sho(a|e|ia)i?b$/,"Shoaib"],
+    [/^osman$/,"Osman"],
+    [/^zahee?r ?uddin$|^zaheer$/,"Zaheeruddin"],
+    [/^dept of post$|dept.*post/,"Dept of post"],
+    [/^omer$/,"Omer"],
+    [/^haji$/,"Haji"],
+    [/^laddu$/,"Laddu"],
+    [/^asrar ahmed$/,"Asrar Ahmed"],
+  ];
+  for(const [re,name] of RULES) if(re.test(s)) return name;
+  // default: Title-case the cleaned string
+  return s.replace(/\b\w/g,c=>c.toUpperCase());
+}
+
 document.getElementById("built").textContent = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
 document.getElementById("hdrRows").textContent = ROWS.length.toLocaleString("en-IN");
 
@@ -360,10 +397,14 @@ function renderKPIs(fr){
       v:`<span class="sm">${INR(firstOpen)}</span> \u2192 <span class="sm">${INR(lastClose)}</span>`,
       chg:"", sub:"cash in hand \u00b7 "+monthTxt},
     {c:"#c0392b", l:"Audit flags", v:String(flags.total), chg:"",
-      sub:`${flags.big} large \u00b7 ${flags.salcha} sal/char \u00b7 ${flags.dup} dup`},
+      sub:`${flags.big} \u2265 \u20b910k \u00b7 ${flags.salcha} salary/charity \u00b7 ${flags.dup} duplicates`,
+      tip:"Entries in the current filter worth a manual check: "
+        +flags.big+" single cash payments of \u20b910,000 or more; "
+        +flags.salcha+" Salary or Charity entries of \u20b95,000+ that should go by bank transfer; "
+        +flags.dup+" likely duplicates (same month, date, payee, purpose and amount entered more than once)."},
   ];
   document.getElementById("kpis").innerHTML = metrics.map(m=>`
-    <div class="kmetric">
+    <div class="kmetric"${m.tip?` title="${m.tip.replace(/"/g,"&quot;")}"`:""}>
       <div class="k-top"><span class="k-dot" style="background:${m.c}"></span><span class="k-label">${m.l}</span></div>
       <div class="k-val">${m.v}${m.chg?" "+m.chg:""}</div>
       ${m.spark||""}
@@ -403,11 +444,10 @@ function renderInsights(){
   const up=[...cdelta].sort((a,b)=>b.d-a.d)[0];
   const dn=[...cdelta].sort((a,b)=>a.d-b.d)[0];
 
-  // payee that grew the most
+  // payee that grew the most (canonicalised)
   const cp={},pp={};
-  cur.forEach(r=>{const k=norm(r[2]);cp[k]=(cp[k]||0)+r[4];});
-  prv.forEach(r=>{const k=norm(r[2]);pp[k]=(pp[k]||0)+r[4];});
-  const disp={}; cur.forEach(r=>disp[norm(r[2])]=disp[norm(r[2])]||r[2]);
+  cur.forEach(r=>{const k=canonPayee(r[2]);cp[k]=(cp[k]||0)+r[4];});
+  prv.forEach(r=>{const k=canonPayee(r[2]);pp[k]=(pp[k]||0)+r[4];});
   const pg=Object.keys(cp).map(k=>({k,d:cp[k]-(pp[k]||0)})).sort((a,b)=>b.d-a.d)[0];
 
   // biggest single entry this month
@@ -430,7 +470,7 @@ function renderInsights(){
   rows.push(li(pct(cur.length,prv.length), `<b>${cur.length}</b> entries vs ${prv.length} — ${fmtP(pct(cur.length,prv.length))}. Average entry ${INR(cS/(cur.length||1))} vs ${INR(pS/(prv.length||1))}.`));
   if(up && up.d>0) rows.push(li(1, `Biggest rise: <b>${up.c}</b> up ${INR(up.d)} (${INR(up.prev)} → ${INR(up.cur)}).`));
   if(dn && dn.d<0) rows.push(li(-1, `Biggest drop: <b>${dn.c}</b> down ${INR(-dn.d)} (${INR(dn.prev)} → ${INR(dn.cur)}).`));
-  if(pg && pg.d>0) rows.push(li(1, `Payee up most: <b>${disp[pg.k]||pg.k}</b>, +${INR(pg.d)} vs ${MN[i-1]}.`));
+  if(pg && pg.d>0) rows.push(li(1, `Payee up most: <b>${pg.k}</b>, +${INR(pg.d)} vs ${MN[i-1]}.`));
   if(big) rows.push(li(0, `Largest single entry: <b>${INR(big[4])}</b> — ${big[2]} (${big[3]}), ${big[1]}.`));
   rows.push(li(dClose, `Closing cash ${INR(M[i].close)} (${dClose>=0?"+":""}${INR(dClose)} vs ${MN[i-1]}). Deposits ${INR(M[i].dep)} ${covered?"covered":"did not cover"} the month's spend.`));
   if(tagged) rows.push(li(0, `Recurring <b>${INR(cRec)}</b> (${(cRec/(cRec+cDyn)*100).toFixed(0)}%) vs one-off ${INR(cDyn)} — only the one-off part needs case-by-case approval.`));
@@ -534,17 +574,17 @@ function renderCharts(fr){
   mk("cDaily",{
     type:"line",
     data:{ labels:days.map(d=>d.slice(5)),
-      datasets:[{data:days.map(d=>byDay[d]),borderColor:"#3f6fb5",backgroundColor:"rgba(63,111,181,.12)",
-        fill:true,tension:.25,pointRadius:days.length>60?0:2}]},
+      datasets:[{data:days.map(d=>byDay[d]),borderColor:"#3f6fb5",backgroundColor:"#3f6fb5",
+        fill:false,tension:.3,borderWidth:1.6,pointRadius:days.length>45?0:2,pointHoverRadius:4}]},
     options:{maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>i[0].label,label:c=>INR(c.raw)}}},
-      scales:{x:{ticks:{maxTicksLimit:12}},y:{ticks:{callback:v=>"\u20b9"+(v/1000)+"k"}}}}
+      scales:{x:{ticks:{maxTicksLimit:12},grid:{display:false}},y:{ticks:{callback:v=>"\u20b9"+(v/1000)+"k"}}}}
   });
 
-  // top payees
+  // top payees (canonicalised names)
   const pm={};
-  fr.forEach(r=>{ const k=norm(r[2]); (pm[k]=pm[k]||{a:0,n:0,disp:r[2]}); pm[k].a+=r[4]; pm[k].n++; });
-  const top=Object.values(pm).sort((a,b)=>b.a-a.a).slice(0,15);
+  fr.forEach(r=>{ const k=canonPayee(r[2]); (pm[k]=pm[k]||{a:0,n:0}); pm[k].a+=r[4]; pm[k].n++; });
+  const top=Object.entries(pm).map(([k,v])=>({disp:k,a:v.a,n:v.n})).sort((a,b)=>b.a-a.a).slice(0,15);
   mk("cPayee",{
     type:"bar",
     data:{ labels:top.map(x=>x.disp),
