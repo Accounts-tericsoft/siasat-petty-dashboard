@@ -238,15 +238,9 @@
   </section>
 
   <section class="panel">
-    <h2>Recommendations</h2>
-    <p class="h-sub">From the Jan&ndash;Sep 2026 data</p>
-    <ul class="act">
-      <li><b>One category list, one payee list.</b> Give the Siasat office a dropdown-only entry sheet &mdash; the same category is typed 3 ways (&ldquo;Office Expenses / Office expenses / office expenses&rdquo;) and payees several ways (&ldquo;Murshid / Murshad&rdquo;, &ldquo;choto / chotu&rdquo;, &ldquo;KVS Kamalakar DIPR&rdquo; &times;3).</li>
-      <li><b>Monthly reconciliation sign-off.</b> Opening + deposits &minus; spend = closing ties exactly every month &mdash; keep it as a formal monthly check.</li>
-      <li><b>Move Salary &amp; large Charity out of cash.</b> Staff overtime / one-day wages and &#8377;5,000&ndash;&#8377;10,000 medical-aid payments should go by bank transfer for audit trail and TDS.</li>
-      <li><b>Tag every month's Occurrence</b> (recurring / dynamic), not just Aug onward, so committed vs discretionary is measurable all year.</li>
-      <li><b>Confirm the Q1 spike.</b> Jan&ndash;Mar ran ~&#8377;7.9 L/month vs ~&#8377;2.8 L/month since April &mdash; largely office refurbishment (paint, furniture, electricals); match it to an approved budget.</li>
-    </ul>
+    <h2>Key findings</h2>
+    <p class="h-sub" id="findSub"></p>
+    <ul class="ins-list" id="findings"></ul>
   </section>
 
   <div class="foot">Figures in Indian rupees. Sep 2026 is a partial month. Source: &ldquo;siasat petty&rdquo; Google Sheet, tabs Jan26&ndash;Sep26.</div>
@@ -488,6 +482,85 @@ function renderInsights(){
   document.getElementById("insights").innerHTML = `<ul class="ins-list">${rows.join("")}</ul>`;
 }
 
+/* ---------- data-driven key findings ---------- */
+function renderFindings(fr){
+  const li=t=>`<li><span class="ic flat">•</span>${t}</li>`;
+  const out=[];
+  const spend=fr.reduce((s,r)=>s+r[4],0), n=fr.length;
+  if(!n){ document.getElementById("findings").innerHTML=li("No entries match the current filter.");
+    document.getElementById("findSub").textContent=""; return; }
+  const pc=v=>Math.round(v/spend*100)+"%";
+
+  // category concentration
+  const ct=CATS.map(()=>0); fr.forEach(r=>ct[r[5]]+=r[4]);
+  const ord=CATS.map((c,k)=>[c,ct[k]]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  if(ord.length>=3){
+    const top3=ord.slice(0,3).reduce((s,x)=>s+x[1],0);
+    out.push(li(`Three categories carry most of the spend: <b>${ord[0][0]}</b>, ${ord[1][0]} and ${ord[2][0]} together are ${pc(top3)} (${INR(top3)}).`));
+  } else if(ord.length){
+    out.push(li(`<b>${ord[0][0]}</b> is ${pc(ord[0][1])} of the filtered spend (${INR(ord[0][1])}).`));
+  }
+  // salary through petty cash
+  if(ct[0]>0){
+    const sn=fr.filter(r=>r[5]===0);
+    out.push(li(`<b>Salary</b> paid through petty cash: ${INR(ct[0])} across ${sn.length} entries (${pc(ct[0])} of spend, avg ${INR(ct[0]/sn.length)}) — overtime, one-day wages and driver allowances.`));
+  }
+  // charity in cash
+  if(ct[2]>0){
+    const cn=fr.filter(r=>r[5]===2), cbig=cn.filter(r=>r[4]>=5000);
+    out.push(li(`<b>Charity / medical aid</b>: ${INR(ct[2])} over ${cn.length} entries, ${cbig.length} of them ≥ ${INR(5000)} in cash.`));
+  }
+  // large cash payments
+  const big=fr.filter(r=>r[4]>=10000).sort((a,b)=>b[4]-a[4]);
+  if(big.length){
+    out.push(li(`<b>${big.length}</b> single cash payments of ${INR(10000)} or more, totalling ${INR(big.reduce((s,r)=>s+r[4],0))} — largest ${INR(big[0][4])} to ${big[0][2]} (${big[0][3]}).`));
+  }
+  // recurring baseline (where tagged)
+  const rec=fr.filter(r=>r[6]==="r").reduce((s,r)=>s+r[4],0),
+        dyn=fr.filter(r=>r[6]==="d").reduce((s,r)=>s+r[4],0);
+  if(rec+dyn>0) out.push(li(`Where the recurring/dynamic tag exists, <b>${INR(rec)}</b> (${Math.round(rec/(rec+dyn)*100)}%) is recurring and ${INR(dyn)} is one-off.`));
+
+  // trend
+  if(state.months.size===1){
+    const i=[...state.months][0];
+    if(i>0){
+      const passNM=r=>(!state.cats.size||state.cats.has(r[5]))
+        && (state.occ==="all"||(state.occ==="r"&&r[6]==="r")||(state.occ==="d"&&r[6]==="d")||(state.occ==="u"&&r[6]===""))
+        && (!state.q||r[2].toLowerCase().includes(state.q)||r[3].toLowerCase().includes(state.q));
+      let pv=0; ROWS.forEach(r=>{ if(r[0]===i-1&&passNM(r)) pv+=r[4]; });
+      if(pv) out.push(li(`${MN[i]} spend is <b>${(spend>=pv?"+":"")+Math.round((spend-pv)/pv*100)}%</b> vs ${MN[i-1]} (${INR(spend)} vs ${INR(pv)}).`));
+    }
+  } else {
+    const passNM=r=>(!state.cats.size||state.cats.has(r[5]))
+      && (state.occ==="all"||(state.occ==="r"&&r[6]==="r")||(state.occ==="d"&&r[6]==="d")||(state.occ==="u"&&r[6]===""))
+      && (!state.q||r[2].toLowerCase().includes(state.q)||r[3].toLowerCase().includes(state.q));
+    const sm=MN.map(()=>0); ROWS.forEach(r=>{ if(passNM(r)) sm[r[0]]+=r[4]; });
+    const q1=(sm[0]+sm[1]+sm[2])/3, rest=(sm[3]+sm[4]+sm[5]+sm[6]+sm[7])/5;
+    if(q1>0&&rest>0) out.push(li(`Monthly spend stepped down from <b>${INR(q1)}/mo</b> in Jan–Mar to <b>${INR(rest)}/mo</b> across Apr–Aug (${Math.round((rest-q1)/q1*100)}%).`));
+  }
+
+  // payee concentration (canonicalised)
+  const pm={}; fr.forEach(r=>{ const k=canonPayee(r[2]); (pm[k]=pm[k]||{a:0,n:0}); pm[k].a+=r[4]; pm[k].n++; });
+  const tp=Object.entries(pm).sort((a,b)=>b[1].a-a[1].a)[0];
+  if(tp) out.push(li(`Top payee <b>${tp[0]}</b>: ${INR(tp[1].a)} over ${tp[1].n} entries (${pc(tp[1].a)} of spend).`));
+
+  // entry size / fragmentation
+  const amts=fr.map(r=>r[4]).sort((a,b)=>a-b);
+  const med=amts[Math.floor(amts.length/2)];
+  const tiny=fr.filter(r=>r[4]<500);
+  out.push(li(`Median entry ${INR(med)}; ${Math.round(tiny.length/n*100)}% of entries are under ${INR(500)} but only ${pc(tiny.reduce((s,r)=>s+r[4],0))} of the money.`));
+
+  // name inconsistency
+  const rawP=new Set(fr.map(r=>norm(r[2]))).size, canP=new Set(fr.map(r=>canonPayee(r[2]))).size;
+  if(rawP>canP) out.push(li(`Payees are written <b>${rawP}</b> different ways for about <b>${canP}</b> real recipients — vendor totals need name clean-up.`));
+
+  document.getElementById("findings").innerHTML = out.join("");
+  document.getElementById("findSub").textContent =
+    (state.months.size||state.cats.size||state.occ!=="all"||state.q)
+      ? `Computed from the ${n.toLocaleString("en-IN")} filtered entries (${INR(spend)}).`
+      : `Computed from all ${n.toLocaleString("en-IN")} entries (${INR(spend)}, Jan–Sep 2026).`;
+}
+
 /* ---------- month-by-month matrix ---------- */
 function renderMatrix(){
   // reflects category / type / search filters, always shows all 9 months
@@ -692,6 +765,7 @@ function render(){
   renderInsights();
   renderCharts(fr);
   renderMatrix();
+  renderFindings(fr);
   curRows=fr; page=0; drawTable();
 }
 render();
