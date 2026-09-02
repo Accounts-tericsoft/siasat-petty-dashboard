@@ -26,13 +26,21 @@ Every KPI, chart, the transaction table and the audit-flag counts recompute live
 | Opening → Closing | Cash-in-hand at the start and end of the selected month range |
 | Audit flags | Flagged entries in the filtered set (see below) |
 
-When exactly one month is selected, the first three cards show a **% vs previous month**.
+Each numeric card carries a 9-month sparkline (selected months dotted). When exactly one
+month is selected, the first three cards also show a **% vs previous month**.
+
+## Insights panel
+
+Selecting a single month shows an auto-generated **month vs previous-month** comparison:
+spend and entry-count change, biggest category rise and drop, the payee that grew most,
+the largest single entry, the closing-cash change and whether deposits covered spend,
+recurring vs one-off split (where tagged), and the audit-flag change. It respects any
+active category / type / search filter.
 
 ## Charts
 
 Monthly cash movement (ledger spend, filtered spend, deposits, closing-balance line) ·
-category mix (donut + horizontal bar) · recurring vs one-off · daily spend line ·
-top payees (name-normalised).
+category mix (donut + horizontal bar) · daily spend line · top payees (name-normalised).
 
 ## Audit flags
 
