@@ -1,26 +1,49 @@
 # Siasat Petty Cash Dashboard
 
-Single-page dashboard over the **siasat petty** Google Sheet (petty-cash ledger kept by the
-Siasat office and MJ), covering **Jan–Sep 2026** — 3,563 entries, ₹37.9 L of spend.
+Interactive single-page dashboard over the **siasat petty** Google Sheet (petty-cash
+ledger kept by the Siasat office and MJ), Jan–Sep 2026 — 3,563 transactions, ₹37.9 L.
 
-Open `index.html` in any browser. No build step; charts via Chart.js CDN.
+Open `index.html` in any browser. No build step; Chart.js via CDN. All 3,563 rows and
+the monthly cash figures are embedded in the file.
 
-## What it shows
+## Filters (top bar)
 
-| Section | Purpose |
+- **Month** — click any set of month chips (none = all)
+- **Category** — multi-select dropdown (11 canonical categories)
+- **Type** — recurring / dynamic / untagged (the Occurrence tag exists only from Aug 2026)
+- **Search** — matches payee or purpose text
+- **Reset** — clears everything
+
+Every KPI, chart, the transaction table and the audit-flag counts recompute live on each filter change.
+
+## KPI box
+
+| Card | Meaning |
 |---|---|
-| Headline KPIs | 8-month spend, monthly burn rate, committed vs discretionary, cash in hand |
-| Monthly spend | Spend bars + entry-count line; the Q1 → Q2 step-down |
-| Where the money goes | Category stack by month + overall donut |
-| Recurring vs one-off | Aug/Sep `Occurrence` split + the ~50 standing obligations (₹1.56 L/mo) |
-| Daily rhythm | Per-month daily-spend sparklines |
-| Top payees / largest entries | Name-normalised vendor totals, 30 biggest line items |
-| Data quality | Category spellings to merge, action list for next month |
+| Total spend | Sum of the filtered entries |
+| Transactions | Count of filtered entries |
+| Cash inflows | First selected month's opening balance + deposits over the selected months |
+| Opening → Closing | Cash-in-hand at the start and end of the selected month range |
+| Audit flags | Flagged entries in the filtered set (see below) |
 
-## Data
+When exactly one month is selected, the first three cards show a **% vs previous month**.
 
-Figures are embedded in `index.html` (`const DATA`). Regenerate by re-reading the sheet
-tabs `Jan26 … Sep26` and the `comments` tab. All monthly totals reconcile to the
-category matrix and to the sheet's own Aug balance (1,38,998 + 2,50,000 − 3,31,122 = 57,876).
+## Charts
+
+Monthly cash movement (ledger spend, filtered spend, deposits, closing-balance line) ·
+category mix (donut + horizontal bar) · recurring vs one-off · daily spend line ·
+top payees (name-normalised).
+
+## Audit flags
+
+An entry is flagged if any of: amount ≥ ₹10,000 (large cash) · category is Salary or
+Charity and amount ≥ ₹5,000 (should be a bank transfer) · it is a likely duplicate
+(same month + date + payee + purpose + amount, counted from the 2nd occurrence).
+
+## Data integrity
+
+Every month reconciles: `opening + deposits − spend = closing`, and each month's closing
+equals the next month's opening. The Jan–Aug ledger total (₹37,81,263) matches the sheet's
+own monthly "Spends" figures.
 
 *Internal — Tericsoft / Siasat accounts.*
