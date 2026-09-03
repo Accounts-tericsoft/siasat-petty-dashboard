@@ -146,6 +146,7 @@
   <div class="filters">
     <div class="frow">
       <div class="fgroup"><span class="flabel">Month</span><span id="monthChips"></span></div>
+      <div class="fgroup"><span class="flabel">Quarter</span><span id="qChips"></span></div>
       <div class="fgroup catbox">
         <span class="flabel">Category</span>
         <button class="chip" id="catToggle" type="button">All categories &#9662;</button>
@@ -310,6 +311,27 @@ MN.forEach((m,i)=>{
 });
 function syncChips(){
   [...monthChipsEl.children].forEach(b=>b.classList.toggle("on", state.months.has(+b.dataset.i)));
+  syncQ();
+}
+// quarter shortcuts (calendar quarters over the Jan–Sep data)
+const QUARTERS = [["Q1","Jan–Mar",[0,1,2]],["Q2","Apr–Jun",[3,4,5]],["Q3","Jul–Sep",[6,7,8]]];
+const qChipsEl = document.getElementById("qChips");
+QUARTERS.forEach(([lab,rng,ms])=>{
+  const b=document.createElement("button");
+  b.className="chip"; b.textContent=lab; b.title=rng;
+  b.onclick=()=>{
+    const isSet = ms.every(m=>state.months.has(m)) && state.months.size===ms.length;
+    state.months.clear();
+    if(!isSet) ms.forEach(m=>state.months.add(m));
+    syncChips(); render();
+  };
+  qChipsEl.appendChild(b);
+});
+function syncQ(){
+  [...qChipsEl.children].forEach((b,qi)=>{
+    const ms=QUARTERS[qi][2];
+    b.classList.toggle("on", state.months.size===ms.length && ms.every(m=>state.months.has(m)));
+  });
 }
 const catMenu=document.getElementById("catMenu");
 CATS.forEach((c,i)=>{
