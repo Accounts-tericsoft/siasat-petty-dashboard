@@ -26,14 +26,30 @@
   header p{margin:5px 0 0;color:var(--ink2);font-size:12.5px}
   .brand{display:flex;align-items:center;gap:13px}
   .logo{display:inline-flex;align-items:center;justify-content:center;flex:none;
-    height:38px;padding:0 12px;border-radius:8px;background:#c8102e;color:#fff;
+    height:40px;padding:0 12px;border-radius:8px;background:#c8102e;color:#fff;
     font-weight:800;font-size:16px;letter-spacing:.14em;box-shadow:var(--shadow)}
-  .logo img{height:26px;display:block}
+  .logo img{height:22px;display:block}
+  .hdr-actions{display:flex;gap:8px;flex:none}
   .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);
     border-radius:9px;padding:7px 13px;font:inherit;font-size:12.5px;font-weight:600;
     cursor:pointer;box-shadow:var(--shadow);white-space:nowrap}
   .btn:hover{border-color:#c9cede}
   @media(max-width:560px){header{padding-top:18px} .logo{height:32px;font-size:14px}}
+
+  @media print{
+    @page{margin:14mm}
+    body{background:#fff}
+    .wrap{max-width:none;padding:0}
+    .filters{position:static;background:none;backdrop-filter:none;border:0;margin-bottom:8px}
+    .hdr-actions,#reset,.tabs,.pager,.catmenu{display:none !important}
+    .panel,.kpibar,.insights{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
+    section{break-inside:avoid}
+    .tbl-scroll{max-height:none;overflow:visible}
+    #tbl tbody tr:nth-child(n+41){display:none}  /* first 40 rows only in print */
+    .chart-h{height:230px !important}
+    .chart-h.tall{height:260px !important}
+    header{border-bottom:1px solid #ccc}
+  }
 
   /* filter bar */
   .filters{position:sticky;top:0;z-index:20;background:rgba(246,247,249,.86);
@@ -159,13 +175,16 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <span class="logo" id="logo">SIASAT</span>
+      <span class="logo" id="logo"><img src="https://www.siasat.com/wp-content/uploads/2020/06/siasat-logo-white80.png" alt="The Siasat Daily" onerror="this.remove();this.parentNode.textContent='SIASAT'"></span>
       <div>
         <h1>Petty Cash Dashboard</h1>
         <p>Petty-cash ledger kept by the Siasat office &amp; MJ &middot; Jan&ndash;Sep 2026 &middot; <span id="hdrRows"></span> entries &middot; built <span id="built"></span></p>
       </div>
     </div>
-    <button class="btn" id="exportBtn" type="button">&#8681;&nbsp; Export CSV</button>
+    <div class="hdr-actions">
+      <button class="btn" id="exportBtn" type="button">&#8681;&nbsp; CSV</button>
+      <button class="btn" id="pdfBtn" type="button">&#128424;&nbsp; PDF</button>
+    </div>
   </header>
 
   <div class="filters">
@@ -324,12 +343,12 @@ function canonPayee(raw){
 document.getElementById("built").textContent = new Date().toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
 document.getElementById("hdrRows").textContent = ROWS.length.toLocaleString("en-IN");
 
-// use a real logo file if one is dropped next to this page (siasat-logo.png / .svg)
+// prefer a local logo file if one is dropped next to this page (overrides the remote one)
 (function(){
   const l=document.getElementById("logo");
   ["siasat-logo.svg","siasat-logo.png"].forEach(src=>{
     const img=new Image();
-    img.onload=()=>{ l.textContent=""; l.style.cssText="height:38px;display:inline-flex;align-items:center"; img.style.height="34px"; l.appendChild(img); };
+    img.onload=()=>{ l.textContent=""; img.style.height="24px"; img.style.display="block"; l.appendChild(img); };
     img.src=src; img.alt="Siasat";
   });
 })();
@@ -851,6 +870,7 @@ document.getElementById("exportBtn").onclick=()=>{
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
 };
+document.getElementById("pdfBtn").onclick=()=>window.print();
 function drawTable(){
   const rs=[...curRows].sort((a,b)=>{
     let x=a[sortK],y=b[sortK];

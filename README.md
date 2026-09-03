@@ -63,11 +63,14 @@ Zaheeruddin, Dept of post.
 
 ## Export & logo
 
-The header has an **Export CSV** button that downloads the currently filtered
-transactions (Date, Payee, Purpose, Category, Type, Amount) — the file name records
-the active filter. The red **SIASAT** mark in the header is a placeholder wordmark:
-drop a `siasat-logo.svg` or `siasat-logo.png` next to `index.html` and the page uses
-it automatically.
+- **CSV** — downloads the currently filtered transactions (Date, Payee, Purpose,
+  Category, Type, Amount); the file name records the active filter.
+- **PDF** — opens the browser print dialog with a print stylesheet applied (choose
+  "Save as PDF"); the filter bar and paging controls are hidden and the transaction
+  table is capped at the first 40 rows for print.
+- **Logo** — the header shows *The Siasat Daily* logo, loaded from
+  `siasat.com`. Drop a local `siasat-logo.svg` / `siasat-logo.png` next to
+  `index.html` to override it (and to work offline).
 
 ## Data integrity
 
