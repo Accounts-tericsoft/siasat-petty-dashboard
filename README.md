@@ -61,6 +61,14 @@ fragmentation, and the payee name-variant count.
 plus Md Fayyaz, Md Imran, Office boy, KVS Kamalakar DIPR, Sambhashiva, Intesar, Shoaib,
 Zaheeruddin, Dept of post.
 
+## Export & logo
+
+The header has an **Export CSV** button that downloads the currently filtered
+transactions (Date, Payee, Purpose, Category, Type, Amount) — the file name records
+the active filter. The red **SIASAT** mark in the header is a placeholder wordmark:
+drop a `siasat-logo.svg` or `siasat-logo.png` next to `index.html` and the page uses
+it automatically.
+
 ## Data integrity
 
 Every month reconciles: `opening + deposits − spend = closing`, and each month's closing
