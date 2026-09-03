@@ -345,12 +345,21 @@ document.getElementById("built").textContent = new Date().toLocaleDateString("en
 document.getElementById("hdrRows").textContent = ROWS.length.toLocaleString("en-IN");
 
 // prefer a local logo file if one is dropped next to this page (overrides the remote one)
+window.__logoData=null;
 (function(){
   const l=document.getElementById("logo");
   ["siasat-logo.svg","siasat-logo.png"].forEach(src=>{
     const img=new Image();
-    img.onload=()=>{ l.textContent=""; img.style.cssText="height:46px;width:auto;display:block;filter:none"; l.appendChild(img); };
-    img.src=src; img.alt="Siasat";
+    img.onload=()=>{
+      l.textContent=""; img.style.cssText="height:50px;width:auto;display:block;filter:none"; l.appendChild(img);
+      if(/\.png$/i.test(src)){
+        try{ const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
+          c.getContext("2d").drawImage(img,0,0);
+          window.__logoData=c.toDataURL("image/png"); window.__logoWH=[img.naturalWidth,img.naturalHeight];
+        }catch(e){}
+      }
+    };
+    img.src=src; img.alt="The Siasat Daily";
   });
 })();
 
@@ -903,14 +912,20 @@ document.getElementById("pdfBtn").onclick=()=>{
   const rows=[...curRows].sort((a,b)=> a[1]<b[1]?-1:a[1]>b[1]?1:0);
   const total=rows.reduce((s,r)=>s+r[4],0);
 
+  let ty=44;
+  if(window.__logoData && window.__logoWH){
+    const h=34, w=h*window.__logoWH[0]/window.__logoWH[1];
+    try{ doc.addImage(window.__logoData,"PNG",M,26,w,h); ty=78; }catch(e){}
+  }
   doc.setFont("helvetica","bold").setFontSize(15).setTextColor(20);
-  doc.text("The Siasat Daily  —  Petty Cash", M, 46);
+  doc.text("Petty Cash — statement", M, ty);
   doc.setFont("helvetica","normal").setFontSize(9).setTextColor(120);
-  doc.text(filterLabel(), M, 62);
-  doc.text("Generated "+new Date().toLocaleString("en-IN"), M, 74);
-  doc.setDrawColor(220).line(M,82,PW-M,82);
+  doc.text(filterLabel(), M, ty+14);
+  doc.text("Generated "+new Date().toLocaleString("en-IN"), M, ty+26);
+  doc.setDrawColor(220).line(M,ty+34,PW-M,ty+34);
 
   // KPI band
+  const kpiTop = ty+44;
   const sm = state.months.size ? [...state.months].sort((a,b)=>a-b) : MN.map((_,i)=>i);
   const inflow = MONTHLY[sm[0]].open + sm.reduce((s,i)=>s+MONTHLY[i].dep,0);
   const kpi=[
@@ -921,7 +936,7 @@ document.getElementById("pdfBtn").onclick=()=>{
     ["Opening balance","Rs "+inr(MONTHLY[sm[0]].open)],
     ["Closing balance","Rs "+inr(MONTHLY[sm[sm.length-1]].close)],
   ];
-  doc.autoTable({ startY:92, body:kpi, theme:"plain",
+  doc.autoTable({ startY:kpiTop, body:kpi, theme:"plain",
     styles:{fontSize:9, cellPadding:{top:2,bottom:2,left:0,right:10}, overflow:"linebreak"},
     columnStyles:{0:{textColor:120,cellWidth:120},1:{fontStyle:"bold",textColor:20}} });
 
