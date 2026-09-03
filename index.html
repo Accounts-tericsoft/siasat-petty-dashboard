@@ -30,17 +30,26 @@
     backdrop-filter:blur(8px);padding:12px 0 12px;border-bottom:1px solid var(--line);
     margin-bottom:18px;}
   .frow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
-  .fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .flabel{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+  #monthChips,#qChips{display:inline-flex;flex-wrap:wrap;gap:6px}
+  .flabel{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-right:2px;flex:none}
   .chip{border:1px solid var(--line);background:var(--panel);color:var(--ink2);
     border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer;user-select:none;
-    transition:all .12s;}
+    transition:all .12s;white-space:nowrap;}
   .chip:hover{border-color:#c9cede}
   .chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   select,input[type=search]{border:1px solid var(--line);background:var(--panel);border-radius:9px;
     padding:6px 10px;font:inherit;font-size:12.5px;color:var(--ink);outline:none}
-  input[type=search]{min-width:210px}
+  .fgroup.grow{flex:1 1 200px}
+  .fgroup.grow input[type=search]{width:100%;min-width:0}
+  input[type=search]{min-width:150px}
   select:focus,input:focus{border-color:var(--accent)}
+  @media(max-width:860px){
+    .frow{gap:9px 12px}
+    .fgroup{flex:1 1 100%}
+    .fgroup.catbox,.fgroup.grow{flex-basis:100%}
+    #reset{align-self:flex-start}
+  }
   .catbox{position:relative}
   .catmenu{position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);
     border-radius:12px;box-shadow:var(--shadow);padding:8px;min-width:220px;max-height:320px;overflow:auto;display:none}
@@ -161,7 +170,7 @@
           <option value="u">Untagged</option>
         </select>
       </div>
-      <div class="fgroup">
+      <div class="fgroup grow">
         <input type="search" id="q" placeholder="Search payee or purpose&hellip;" />
       </div>
       <button class="btnlink" id="reset" type="button">Reset</button>
