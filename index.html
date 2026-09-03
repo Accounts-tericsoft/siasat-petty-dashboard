@@ -212,8 +212,8 @@
 
   <section class="panel">
     <h2>Top payees</h2>
-    <p class="h-sub">Name-normalised, filtered &mdash; total paid and entry count</p>
-    <div class="chart-h" style="height:340px"><canvas id="cPayee"></canvas></div>
+    <p class="h-sub" id="payeeSub">Name-normalised, filtered &mdash; total paid and entry count</p>
+    <div class="chart-h" style="height:360px"><canvas id="cPayee"></canvas></div>
   </section>
 
   <section class="panel">
@@ -710,14 +710,48 @@ function renderCharts(fr){
   const pm={};
   fr.forEach(r=>{ const k=canonPayee(r[2]); (pm[k]=pm[k]||{a:0,n:0}); pm[k].a+=r[4]; pm[k].n++; });
   const top=Object.entries(pm).map(([k,v])=>({disp:k,a:v.a,n:v.n})).sort((a,b)=>b.a-a.a).slice(0,15);
+
+  // previous-month totals per payee (when exactly one month is picked)
+  const prevPay={};
+  if(cmp){
+    const passP = r => (!state.cats.size||state.cats.has(r[5]))
+      && (state.occ==="all" || (state.occ==="r"&&r[6]==="r")||(state.occ==="d"&&r[6]==="d")||(state.occ==="u"&&r[6]===""))
+      && (!state.q || r[2].toLowerCase().includes(state.q)||r[3].toLowerCase().includes(state.q));
+    ROWS.forEach(r=>{ if(r[0]===one-1 && passP(r)){ const k=canonPayee(r[2]); prevPay[k]=(prevPay[k]||0)+r[4]; } });
+  }
+  const payLabels = top.map(x=>{
+    if(!cmp) return x.disp;
+    const prev=prevPay[x.disp]||0, d=x.a-prev;
+    if(prev===0) return x.disp+"  \u2726 new";
+    const p=Math.abs(d/prev*100);
+    return `${x.disp}  ${arrowFor(d)} ${p<1?"0":p.toFixed(0)}%`;
+  });
+  const payCols = top.map(x=> cmp ? colFor(x.a-(prevPay[x.disp]||0)) : "#5b6472");
+  const paySets = [];
+  if(cmp) paySets.push({label:MN[one-1], data:top.map(x=>prevPay[x.disp]||0),
+     backgroundColor:"#e4e7ee", borderRadius:3, categoryPercentage:0.8, barPercentage:0.9});
+  paySets.push({label: cmp?MN[one]:"Paid", data:top.map(x=>x.a),
+     backgroundColor:"#5b6472", borderRadius:4, categoryPercentage:0.8, barPercentage:0.9});
+
   mk("cPayee",{
     type:"bar",
-    data:{ labels:top.map(x=>x.disp),
-      datasets:[{data:top.map(x=>x.a),backgroundColor:"#5b6472",borderRadius:4}]},
+    data:{ labels:payLabels, datasets:paySets },
     options:{maintainAspectRatio:false,indexAxis:"y",
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>INR(c.raw)+"  ("+top[c.dataIndex].n+" entries)"}}},
-      scales:{x:{ticks:{callback:v=>"\u20b9"+(v/1000)+"k"}}}}
+      plugins:{legend:{display:cmp,position:"bottom"},
+        tooltip:{callbacks:{
+          label:c=>c.dataset.label+": "+INR(c.raw)+(c.datasetIndex===paySets.length-1?"  ("+top[c.dataIndex].n+" entries)":""),
+          afterBody:items=>{
+            if(!cmp) return "";
+            const x=top[items[0].dataIndex], prev=prevPay[x.disp]||0, d=x.a-prev;
+            return (d>=0?"\u25b2 +":"\u25bc ")+INR(Math.abs(d))+(prev? "  ("+(d>=0?"+":"")+(d/prev*100).toFixed(0)+"%)":"  (new)");
+          }
+        }}},
+      scales:{x:{ticks:{callback:v=>"\u20b9"+(v/1000)+"k"}},
+        y:{ticks:{color:payCols, font:{size:11}}}}}
   });
+  document.getElementById("payeeSub").textContent = cmp
+    ? `${MN[one]} vs ${MN[one-1]} \u2014 label shows the change (\u25b2 rose, \u25bc fell)`
+    : "Name-normalised, filtered \u2014 total paid and entry count";
 }
 
 /* ---------- table ---------- */
