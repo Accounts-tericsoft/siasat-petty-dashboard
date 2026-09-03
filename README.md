@@ -63,14 +63,16 @@ Zaheeruddin, Dept of post.
 
 ## Export & logo
 
-- **CSV** — downloads the currently filtered transactions (Date, Payee, Purpose,
-  Category, Type, Amount); the file name records the active filter.
-- **PDF** — opens the browser print dialog with a print stylesheet applied (choose
-  "Save as PDF"); the filter bar and paging controls are hidden and the transaction
-  table is capped at the first 40 rows for print.
-- **Logo** — the header shows *The Siasat Daily* logo, loaded from
-  `siasat.com`. Drop a local `siasat-logo.svg` / `siasat-logo.png` next to
-  `index.html` to override it (and to work offline).
+- **CSV** — a title block (filter, timestamp, entry count, total) followed by
+  Date / Payee / Purpose / Category / Amount and a TOTAL row, for the currently
+  filtered transactions.
+- **PDF** — a self-contained report built with jsPDF + autoTable: title, active
+  filter, a summary band, and tables for category breakdown, month totals, top
+  payees and every filtered transaction (paginated, with a TOTAL). Falls back to
+  the browser print dialog if the libraries fail to load.
+- **Logo** — *The Siasat Daily* mark, loaded from `siasat.com`. Drop a local
+  `siasat-logo.svg` / `siasat-logo.png` next to `index.html` to override it.
+
 
 ## Data integrity
 

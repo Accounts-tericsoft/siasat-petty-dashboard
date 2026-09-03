@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Siasat Petty Cash Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --bg:#f6f7f9; --panel:#ffffff; --ink:#1c2230; --ink2:#5b6472; --muted:#8a929f;
@@ -24,11 +26,10 @@
   header{padding:24px 0 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
   header h1{margin:0;font-size:19px;font-weight:650;letter-spacing:-.01em}
   header p{margin:5px 0 0;color:var(--ink2);font-size:12.5px}
-  .brand{display:flex;align-items:center;gap:13px}
-  .logo{display:inline-flex;align-items:center;justify-content:center;flex:none;
-    height:40px;padding:0 12px;border-radius:8px;background:#c8102e;color:#fff;
-    font-weight:800;font-size:16px;letter-spacing:.14em;box-shadow:var(--shadow)}
-  .logo img{height:22px;display:block}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{display:inline-flex;align-items:center;flex:none;
+    color:#c8102e;font-weight:800;font-size:18px;letter-spacing:.14em}
+  .logo img{height:52px;width:auto;display:block;border-radius:9px}
   .hdr-actions{display:flex;gap:8px;flex:none}
   .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);
     border-radius:9px;padding:7px 13px;font:inherit;font-size:12.5px;font-weight:600;
@@ -175,7 +176,7 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <span class="logo" id="logo"><img src="https://www.siasat.com/wp-content/uploads/2020/06/siasat-logo-white80.png" alt="The Siasat Daily" onerror="this.remove();this.parentNode.textContent='SIASAT'"></span>
+      <span class="logo" id="logo"><img src="https://www.siasat.com/wp-content/uploads/2020/05/the-siasat-daily-fav-logo.png" alt="The Siasat Daily" onerror="this.remove();this.parentNode.textContent='SIASAT'"></span>
       <div>
         <h1>Petty Cash Dashboard</h1>
         <p>Petty-cash ledger kept by the Siasat office &amp; MJ &middot; Jan&ndash;Sep 2026 &middot; <span id="hdrRows"></span> entries &middot; built <span id="built"></span></p>
@@ -348,7 +349,7 @@ document.getElementById("hdrRows").textContent = ROWS.length.toLocaleString("en-
   const l=document.getElementById("logo");
   ["siasat-logo.svg","siasat-logo.png"].forEach(src=>{
     const img=new Image();
-    img.onload=()=>{ l.textContent=""; img.style.height="24px"; img.style.display="block"; l.appendChild(img); };
+    img.onload=()=>{ l.textContent=""; img.style.cssText="height:46px;width:auto;display:block;filter:none"; l.appendChild(img); };
     img.src=src; img.alt="Siasat";
   });
 })();
@@ -849,28 +850,123 @@ document.querySelectorAll("#tbl th").forEach(th=>{
 document.getElementById("prev").onclick=()=>{ if(page>0){page--;drawTable();} };
 document.getElementById("next").onclick=()=>{ if((page+1)*PAGE<curRows.length){page++;drawTable();} };
 
-/* ---------- export current view to CSV ---------- */
-document.getElementById("exportBtn").onclick=()=>{
-  const esc = v => `"${String(v).replace(/"/g,'""')}"`;
-  const occL = {r:"Recurring",d:"Dynamic",u:""};
-  const head = ["Date","Payee","Purpose","Category","Type","Amount"];
-  const body = [...curRows]
-    .sort((a,b)=> a[1]<b[1]?-1 : a[1]>b[1]?1 : 0)
-    .map(r=>[r[1], esc(r[2]), esc(r[3]), CATS[r[5]], occL[r[6]||"u"], r[4]].join(","));
-  const csv = "﻿" + [head.join(","), ...body].join("\r\n");
-  const parts = [];
-  if(state.months.size) parts.push([...state.months].sort((a,b)=>a-b).map(i=>MN[i]).join("-"));
-  if(state.cats.size) parts.push([...state.cats].map(i=>CATS[i].replace(/\s+/g,"")).join("-"));
-  if(state.occ!=="all") parts.push(state.occ==="r"?"recurring":state.occ==="d"?"dynamic":"untagged");
-  if(state.q) parts.push(state.q.replace(/[^a-z0-9]+/gi,""));
-  const name = "siasat-petty" + (parts.length? "_"+parts.join("_") : "") + "_" + new Date().toISOString().slice(0,10) + ".csv";
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
-  a.download = name;
+/* ---------- shared helpers for exports ---------- */
+function filterLabel(){
+  const p=[];
+  p.push(state.months.size ? [...state.months].sort((a,b)=>a-b).map(i=>MN[i]).join(", ") : "Jan–Sep 2026");
+  if(state.cats.size) p.push([...state.cats].map(i=>CATS[i]).join(", "));
+  if(state.occ!=="all") p.push(state.occ==="r"?"recurring only":state.occ==="d"?"one-off only":"untagged only");
+  if(state.q) p.push('search "'+state.q+'"');
+  return p.join("  ·  ");
+}
+function fileSlug(ext){
+  const p=[];
+  if(state.months.size) p.push([...state.months].sort((a,b)=>a-b).map(i=>MN[i]).join("-"));
+  if(state.cats.size) p.push([...state.cats].map(i=>CATS[i].replace(/\s+/g,"")).join("-"));
+  if(state.occ!=="all") p.push(state.occ);
+  if(state.q) p.push(state.q.replace(/[^a-z0-9]+/gi,""));
+  return "siasat-petty"+(p.length?"_"+p.join("_"):"")+"_"+new Date().toISOString().slice(0,10)+"."+ext;
+}
+function saveBlob(blob,name){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+function inr(n){ return Math.round(n).toLocaleString("en-IN"); }
+
+/* ---------- CSV: title block + clean columns + totals ---------- */
+document.getElementById("exportBtn").onclick=()=>{
+  const esc=v=>{ v=String(v); return /[",\r\n]/.test(v)? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const rows=[...curRows].sort((a,b)=> a[1]<b[1]?-1:a[1]>b[1]?1:0);
+  const total=rows.reduce((s,r)=>s+r[4],0);
+  const L=[];
+  L.push(["The Siasat Daily — Petty Cash"]);
+  L.push(["Filter",filterLabel()]);
+  L.push(["Generated",new Date().toLocaleString("en-IN")]);
+  L.push(["Entries",rows.length,"Total (INR)",total]);
+  L.push([]);
+  L.push(["Date","Payee","Purpose","Category","Amount (INR)"]);
+  rows.forEach(r=>L.push([r[1], r[2], r[3], CATS[r[5]], r[4]]));
+  L.push([]);
+  L.push(["","","","TOTAL",total]);
+  const csv="﻿"+L.map(row=>row.map(esc).join(",")).join("\r\n");
+  saveBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}), fileSlug("csv"));
 };
-document.getElementById("pdfBtn").onclick=()=>window.print();
+
+/* ---------- PDF: a real one-piece report (jsPDF + autoTable) ---------- */
+document.getElementById("pdfBtn").onclick=()=>{
+  const JS = window.jspdf && window.jspdf.jsPDF;
+  if(!JS){ window.print(); return; }               // graceful fallback
+  const doc=new JS({unit:"pt",format:"a4"});
+  const PW=doc.internal.pageSize.getWidth(), M=40;
+  const rows=[...curRows].sort((a,b)=> a[1]<b[1]?-1:a[1]>b[1]?1:0);
+  const total=rows.reduce((s,r)=>s+r[4],0);
+
+  doc.setFont("helvetica","bold").setFontSize(15).setTextColor(20);
+  doc.text("The Siasat Daily  —  Petty Cash", M, 46);
+  doc.setFont("helvetica","normal").setFontSize(9).setTextColor(120);
+  doc.text(filterLabel(), M, 62);
+  doc.text("Generated "+new Date().toLocaleString("en-IN"), M, 74);
+  doc.setDrawColor(220).line(M,82,PW-M,82);
+
+  // KPI band
+  const sm = state.months.size ? [...state.months].sort((a,b)=>a-b) : MN.map((_,i)=>i);
+  const inflow = MONTHLY[sm[0]].open + sm.reduce((s,i)=>s+MONTHLY[i].dep,0);
+  const kpi=[
+    ["Total spend","Rs "+inr(total)],
+    ["Entries",String(rows.length)],
+    ["Avg / entry","Rs "+inr(total/(rows.length||1))],
+    ["Cash inflows","Rs "+inr(inflow)],
+    ["Opening → Closing","Rs "+inr(MONTHLY[sm[0]].open)+"  →  Rs "+inr(MONTHLY[sm[sm.length-1]].close)],
+  ];
+  doc.autoTable({ startY:92, body:kpi, theme:"plain",
+    styles:{fontSize:9, cellPadding:{top:2,bottom:2,left:0,right:10}},
+    columnStyles:{0:{textColor:120,cellWidth:90},1:{fontStyle:"bold",textColor:20}} });
+
+  // category breakdown
+  const ct=CATS.map(()=>0); rows.forEach(r=>ct[r[5]]+=r[4]);
+  const catBody=CATS.map((c,k)=>[c,ct[k]]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1])
+    .map(x=>[x[0],"Rs "+inr(x[1]), (x[1]/total*100).toFixed(1)+"%"]);
+  doc.autoTable({ startY:doc.lastAutoTable.finalY+14,
+    head:[["Category","Amount","Share"]], body:catBody,
+    headStyles:{fillColor:[63,111,181],fontSize:8.5}, styles:{fontSize:8.5,cellPadding:3},
+    columnStyles:{1:{halign:"right"},2:{halign:"right"}}, margin:{left:M,right:M} });
+
+  // month totals
+  const mtot=MN.map(()=>0); rows.forEach(r=>mtot[r[0]]+=r[4]);
+  doc.autoTable({ startY:doc.lastAutoTable.finalY+14,
+    head:[["Month","Spend","Deposits","Closing balance"]],
+    body:MN.map((m,i)=>[m,"Rs "+inr(mtot[i]),"Rs "+inr(MONTHLY[i].dep),"Rs "+inr(MONTHLY[i].close)]),
+    headStyles:{fillColor:[76,157,116],fontSize:8.5}, styles:{fontSize:8.5,cellPadding:3},
+    columnStyles:{1:{halign:"right"},2:{halign:"right"},3:{halign:"right"}}, margin:{left:M,right:M} });
+
+  // top payees
+  const pm={}; rows.forEach(r=>{ const k=canonPayee(r[2]); (pm[k]=pm[k]||{a:0,n:0}); pm[k].a+=r[4]; pm[k].n++; });
+  const tp=Object.entries(pm).sort((a,b)=>b[1].a-a[1].a).slice(0,12)
+    .map(([k,v])=>[k,"Rs "+inr(v.a),String(v.n)]);
+  doc.autoTable({ startY:doc.lastAutoTable.finalY+14,
+    head:[["Top payee","Paid","Entries"]], body:tp,
+    headStyles:{fillColor:[91,100,114],fontSize:8.5}, styles:{fontSize:8.5,cellPadding:3},
+    columnStyles:{1:{halign:"right"},2:{halign:"right"}}, margin:{left:M,right:M} });
+
+  // full transactions
+  doc.autoTable({ startY:doc.lastAutoTable.finalY+16,
+    head:[["Date","Payee","Purpose","Category","Amount"]],
+    body:rows.map(r=>[r[1],r[2],r[3],CATS[r[5]],inr(r[4])]),
+    foot:[["","","","TOTAL","Rs "+inr(total)]],
+    headStyles:{fillColor:[40,46,58],fontSize:8}, footStyles:{fillColor:[240,241,244],textColor:20,fontStyle:"bold"},
+    styles:{fontSize:7.5,cellPadding:2.5,overflow:"linebreak"},
+    columnStyles:{0:{cellWidth:56},3:{cellWidth:78},4:{halign:"right",cellWidth:56}},
+    margin:{left:M,right:M},
+    didDrawPage: d => {
+      const p=doc.internal.getNumberOfPages();
+      doc.setFontSize(7.5).setTextColor(150);
+      doc.text("Siasat petty cash  ·  page "+d.pageNumber+" / "+p, M, doc.internal.pageSize.getHeight()-18);
+    }
+  });
+  doc.save(fileSlug("pdf"));
+};
 function drawTable(){
   const rs=[...curRows].sort((a,b)=>{
     let x=a[sortK],y=b[sortK];
