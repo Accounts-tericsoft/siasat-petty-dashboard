@@ -30,11 +30,12 @@
   .logo{display:inline-flex;align-items:center;flex:none;
     color:#c8102e;font-weight:800;font-size:18px;letter-spacing:.14em}
   .logo img{height:52px;width:auto;display:block;border-radius:9px}
-  .hdr-actions{display:flex;gap:8px;flex:none}
+  .hdr-actions{display:flex;gap:8px;flex:none;flex-wrap:wrap}
   .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);
     border-radius:9px;padding:7px 13px;font:inherit;font-size:12.5px;font-weight:600;
     cursor:pointer;box-shadow:var(--shadow);white-space:nowrap}
   .btn:hover{border-color:#c9cede}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
   @media(max-width:560px){header{padding-top:18px} .logo{height:32px;font-size:14px}}
 
   @media print{
@@ -183,6 +184,7 @@
       </div>
     </div>
     <div class="hdr-actions">
+      <button class="btn" id="refreshBtn" type="button" title="Reload the dashboard">&#8635;&nbsp; Refresh</button>
       <button class="btn" id="exportBtn" type="button">&#8681;&nbsp; CSV</button>
       <button class="btn" id="pdfBtn" type="button">&#128424;&nbsp; PDF</button>
     </div>
@@ -904,6 +906,9 @@ document.getElementById("exportBtn").onclick=()=>{
 };
 
 /* ---------- PDF: a real one-piece report (jsPDF + autoTable) ---------- */
+/* ---------- refresh ---------- */
+document.getElementById("refreshBtn").onclick=()=>location.reload();
+
 document.getElementById("pdfBtn").onclick=()=>{
   const JS = window.jspdf && window.jspdf.jsPDF;
   if(!JS){ window.print(); return; }               // graceful fallback
