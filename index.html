@@ -309,12 +309,14 @@ const norm = w => w.trim().toLowerCase().replace(/\s+/g," ");
 // Collapse the many spellings of the same payee into one canonical name.
 function canonPayee(raw){
   let s = norm(raw)
-    .replace(/[.,]/g," ").replace(/\s+/g," ").trim()
+    .replace(/[.,()\-–—]/g," ").replace(/\s+/g," ").trim()
     .replace(/ (driver|tv|dak section|dak|section)( and guard)?$/,"")
     .replace(/ (c\/o|for) .*$/,"")
     .replace(/^(md|mohd|mohammed|mr|mrs|ms|smt)\.? /,"")
     .trim();
   const RULES = [
+    [/m[ae]hmood ali khan/,"Mahmood Ali Khan Shamshabad"],
+    [/arf.*jogipet/,"Arfath Jogipet"],
     [/^sta?f+f?( ?p ?t| ?p ?s| ?t ?s| ?pt| ?ps| ?ts| ?p| ?t| ?s)?$/,"Staff"],
     [/^staff toward/,"Staff"],
     [/^chh?ot[ou]$/,"Choto"],
