@@ -191,7 +191,7 @@
   <section class="grid g3-2">
     <div class="panel">
       <h2>Monthly cash movement</h2>
-      <p class="h-sub">Spend &amp; deposits per month, with closing balance. Selected months are highlighted.</p>
+      <p class="h-sub" id="cmSub">Spend &amp; deposits per month, with closing balance. Selected months are highlighted.</p>
       <div class="chart-h tall"><canvas id="cMonthly"></canvas></div>
     </div>
     <div class="panel">
@@ -644,24 +644,34 @@ function renderCharts(fr){
   const selSet = state.months;
   const isSel = i => selSet.size===0 || selSet.has(i);
 
-  // monthly cash movement (always all months; filtered spend overlaid as well)
+  // monthly cash movement \u2014 full cash view when unfiltered, just filtered spend when a
+  // category / type / search filter is on (deposits & closing don't respond to those)
   const filtSpendByMonth = MN.map((_,i)=>0);
   fr.forEach(r=>filtSpendByMonth[r[0]]+=r[4]);
-  mk("cMonthly",{
-    data:{ labels:MN, datasets:[
-      {type:"bar",label:"Spend (ledger)",data:MONTHLY.map(m=>m.spend),
-        backgroundColor:MN.map((_,i)=>isSel(i)?"#c3cef0":"#eef1f8"),borderColor:"#c3cef0",order:3,yAxisID:"y"},
-      {type:"bar",label:"Spend (filtered)",data:filtSpendByMonth,
+  const anyFilt = state.cats.size || state.occ!=="all" || state.q;
+  let mSets;
+  if(anyFilt){
+    mSets = [{type:"bar",label:"Spend matching filter",data:filtSpendByMonth,
+      backgroundColor:MN.map((_,i)=>isSel(i)?"#3f6fb5":"#c9d3ea"),borderRadius:4,yAxisID:"y"}];
+  } else {
+    mSets = [
+      {type:"bar",label:"Spend",data:MONTHLY.map(m=>m.spend),
         backgroundColor:MN.map((_,i)=>isSel(i)?"#3f6fb5":"#c9d3ea"),borderRadius:3,order:2,yAxisID:"y"},
       {type:"bar",label:"Deposits",data:MONTHLY.map(m=>m.dep),
         backgroundColor:MN.map((_,i)=>isSel(i)?"#4c9d74":"#dcebe3"),borderRadius:3,order:2,yAxisID:"y"},
       {type:"line",label:"Closing balance",data:MONTHLY.map(m=>m.close),
         borderColor:"#b4690e",backgroundColor:"#b4690e",tension:.3,pointRadius:3,order:1,yAxisID:"y"},
-    ]},
+    ];
+  }
+  mk("cMonthly",{
+    data:{ labels:MN, datasets:mSets },
     options:{maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
-      plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+INR(c.raw)}}},
+      plugins:{legend:{display:!anyFilt,position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+INR(c.raw)}}},
       scales:{y:{ticks:{callback:v=>"\u20b9"+(v/1e5)+"L"}}}}
   });
+  document.getElementById("cmSub").textContent = anyFilt
+    ? "Spend matching the current filter, per month"
+    : "Spend & deposits per month, with closing balance. Selected months are highlighted.";
 
   // category totals (filtered)
   const catTot = CATS.map((_,i)=>0);
