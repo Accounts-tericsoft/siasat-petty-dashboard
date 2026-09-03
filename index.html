@@ -918,11 +918,12 @@ document.getElementById("pdfBtn").onclick=()=>{
     ["Entries",String(rows.length)],
     ["Avg / entry","Rs "+inr(total/(rows.length||1))],
     ["Cash inflows","Rs "+inr(inflow)],
-    ["Opening → Closing","Rs "+inr(MONTHLY[sm[0]].open)+"  →  Rs "+inr(MONTHLY[sm[sm.length-1]].close)],
+    ["Opening balance","Rs "+inr(MONTHLY[sm[0]].open)],
+    ["Closing balance","Rs "+inr(MONTHLY[sm[sm.length-1]].close)],
   ];
   doc.autoTable({ startY:92, body:kpi, theme:"plain",
-    styles:{fontSize:9, cellPadding:{top:2,bottom:2,left:0,right:10}},
-    columnStyles:{0:{textColor:120,cellWidth:90},1:{fontStyle:"bold",textColor:20}} });
+    styles:{fontSize:9, cellPadding:{top:2,bottom:2,left:0,right:10}, overflow:"linebreak"},
+    columnStyles:{0:{textColor:120,cellWidth:120},1:{fontStyle:"bold",textColor:20}} });
 
   // category breakdown
   const ct=CATS.map(()=>0); rows.forEach(r=>ct[r[5]]+=r[4]);
