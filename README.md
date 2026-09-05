@@ -1,9 +1,9 @@
 # Siasat Petty Cash Dashboard
 
 Interactive single-page dashboard over the **siasat petty** Google Sheet (petty-cash
-ledger kept by the Siasat office and MJ), Jan–Sep 2026 — 3,576 transactions, ₹38.1 L.
+ledger kept by the Siasat office and MJ), Jan–Sep 2026 — 3,610 transactions, ₹38.5 L.
 
-Open `index.html` in any browser. No build step; Chart.js via CDN. All 3,576 rows and
+Open `index.html` in any browser. No build step; Chart.js via CDN. All 3,610 rows and
 the monthly cash figures (opening / deposits / spend / closing) are embedded in the file.
 
 ## Filters (top bar)
