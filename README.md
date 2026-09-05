@@ -3,8 +3,16 @@
 Interactive single-page dashboard over the **siasat petty** Google Sheet (petty-cash
 ledger kept by the Siasat office and MJ), Jan–Sep 2026 — 3,610 transactions, ₹38.5 L.
 
-Open `index.html` in any browser. No build step; Chart.js via CDN. All 3,610 rows and
-the monthly cash figures (opening / deposits / spend / closing) are embedded in the file.
+Open `dashboard.html` in any browser. No build step; Chart.js via CDN. All 3,610 rows
+and the monthly cash figures (opening / deposits / spend / closing) are embedded in the file.
+
+## Dashboard / Forecast tabs
+
+Two views, toggled top-left:
+- **Dashboard** — everything below (filters, KPIs, charts, tables).
+- **Forecast** — next month / next quarter / full-year 2026 spend projection, based on
+  a simple run-rate (average of the last 3 completed months), plus a category split and
+  an actual-vs-forecast monthly chart. Not filter-dependent; always uses the whole ledger.
 
 ## Filters (top bar)
 
