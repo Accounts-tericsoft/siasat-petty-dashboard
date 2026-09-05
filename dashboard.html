@@ -158,6 +158,8 @@
   table.mtx td.selcol{background:var(--accent-soft)}
   table.mtx th.selcol{background:#e6ebfb}
   table.mtx td.zero{color:var(--muted)}
+  table.mtx td.mtx-pct{color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
+  table.mtx tr.mtx-total td.mtx-pct{color:var(--ink2);font-weight:600}
 
   /* flags */
   .flag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -474,12 +476,14 @@ function filtered(){
 function selMonths(){ return state.months.size ? [...state.months].sort((a,b)=>a-b) : MN.map((_,i)=>i); }
 
 /* ---------- KPIs ---------- */
-function chgHTML(cur, prev){
+function chgHTML(cur, prev, isMoney){
   if(prev==null || prev===0 || !isFinite(prev)) return "";
-  const p=(cur-prev)/prev*100;
+  const diff=cur-prev, p=diff/prev*100;
   const cls = p>0.5 ? "up" : (p<-0.5 ? "down" : "flat");
   const arrow = p>0.5 ? "\u2191" : (p<-0.5 ? "\u2193" : "\u2192");
-  return `<span class="k-chg ${cls}">${arrow}\u2009${Math.abs(p).toFixed(1)}%</span>`;
+  const sign = diff>=0 ? "+" : "\u2212";
+  const diffTxt = isMoney ? INR(Math.abs(diff)) : Math.abs(diff).toLocaleString("en-IN");
+  return `<span class="k-chg ${cls}">${arrow}\u2009${Math.abs(p).toFixed(1)}% (${sign}${diffTxt})</span>`;
 }
 // tiny inline sparkline: 9 monthly values, highlight selected months
 function spark(vals, sel, col){
@@ -514,9 +518,9 @@ function renderKPIs(fr){
   let cSpend="", cTxn="", cInflow="";
   if(sel.size===1 && sm[0]>0){
     const i=sm[0];
-    cSpend  = chgHTML(spendM[i],  spendM[i-1]);
-    cTxn    = chgHTML(txnM[i],    txnM[i-1]);
-    cInflow = chgHTML(inflowM[i], inflowM[i-1]);
+    cSpend  = chgHTML(spendM[i],  spendM[i-1],  true);
+    cTxn    = chgHTML(txnM[i],    txnM[i-1],    false);
+    cInflow = chgHTML(inflowM[i], inflowM[i-1], true);
   }
   const filt = state.cats.size||state.occ!=="all"||state.q;
   const monthTxt = sm.length>1 ? MN[sm[0]]+"\u2013"+MN[sm[sm.length-1]] : MN[sm[0]];
@@ -702,11 +706,11 @@ function renderMatrix(){
   const nf = n => n? Math.round(n).toLocaleString("en-IN") : "\u2014";
   const selC = i => state.months.size && state.months.has(i) ? " selcol" : "";
 
-  const head = `<tr><th>Category</th>${MN.map((m,i)=>`<th class="${selC(i).trim()}">${m}</th>`).join("")}<th>Total</th></tr>`;
+  const head = `<tr><th>Category</th>${MN.map((m,i)=>`<th class="${selC(i).trim()}">${m}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
   const body = catRows.map(r=>
-    `<tr><td>${r.c}</td>${r.vals.map((v,i)=>`<td class="${v?"":"zero"}${selC(i)}">${nf(v)}</td>`).join("")}<td>${nf(r.tot)}</td></tr>`
+    `<tr><td>${r.c}</td>${r.vals.map((v,i)=>`<td class="${v?"":"zero"}${selC(i)}">${nf(v)}</td>`).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
   ).join("");
-  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,i)=>`<td class="${selC(i)}">${nf(v)}</td>`).join("")}<td>${nf(grand)}</td></tr>`;
+  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,i)=>`<td class="${selC(i)}">${nf(v)}</td>`).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
   // cash rows straight from the ledger (unaffected by filters)
   const cash = [
     ["Opening balance", MONTHLY.map(m=>m.open)],
@@ -714,7 +718,7 @@ function renderMatrix(){
     ["Ledger spend",    MONTHLY.map(m=>m.spend)],
     ["Closing balance", MONTHLY.map(m=>m.close)],
   ].map((row,ri)=>
-    `<tr class="mtx-cash${ri===0?" first":""}"><td>${row[0]}</td>${row[1].map((v,i)=>`<td class="${selC(i)}">${nf(v)}</td>`).join("")}<td>\u2014</td></tr>`
+    `<tr class="mtx-cash${ri===0?" first":""}"><td>${row[0]}</td>${row[1].map((v,i)=>`<td class="${selC(i)}">${nf(v)}</td>`).join("")}<td>\u2014</td><td>\u2014</td></tr>`
   ).join("");
 
   document.querySelector("#mtx thead").innerHTML = head;
