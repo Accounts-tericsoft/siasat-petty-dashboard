@@ -160,6 +160,8 @@
   table.mtx td.zero{color:var(--muted)}
   table.mtx td.mtx-pct{color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
   table.mtx tr.mtx-total td.mtx-pct{color:var(--ink2);font-weight:600}
+  table.mtx .mtx-d{font-size:10px;font-weight:600;margin-top:1px;white-space:nowrap}
+  table.mtx .mtx-d.up{color:var(--up)} table.mtx .mtx-d.down{color:var(--down)} table.mtx .mtx-d.flat{color:var(--muted)}
 
   /* flags */
   .flag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -705,12 +707,29 @@ function renderMatrix(){
   const grand = colTot.reduce((s,v)=>s+v,0);
   const nf = n => n? Math.round(n).toLocaleString("en-IN") : "\u2014";
   const selC = i => state.months.size && state.months.has(i) ? " selcol" : "";
+  const one = state.months.size===1 ? [...state.months][0] : -1;
+
+  const cell = (v, i, arr) => {
+    let extra = "";
+    if(one>0 && i===one && arr){
+      const prev = arr[one-1]||0;
+      if(prev>0 || v>0){
+        if(prev===0){ extra = `<div class="mtx-d up">\u2726 new</div>`; }
+        else{
+          const d=v-prev, p=d/prev*100;
+          const dc = p>0.5?"up":p<-0.5?"down":"flat", arrow = p>0.5?"\u25b2":p<-0.5?"\u25bc":"\u25ac";
+          extra = `<div class="mtx-d ${dc}">${arrow} ${Math.abs(p).toFixed(0)}% (${d>=0?"+":"\u2212"}${nf(Math.abs(d))})</div>`;
+        }
+      }
+    }
+    return `<td class="${v?"":"zero"}${selC(i)}">${nf(v)}${extra}</td>`;
+  };
 
   const head = `<tr><th>Category</th>${MN.map((m,i)=>`<th class="${selC(i).trim()}">${m}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
   const body = catRows.map(r=>
-    `<tr><td>${r.c}</td>${r.vals.map((v,i)=>`<td class="${v?"":"zero"}${selC(i)}">${nf(v)}</td>`).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
+    `<tr><td>${r.c}</td>${r.vals.map((v,i)=>cell(v,i,r.vals)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
   ).join("");
-  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,i)=>`<td class="${selC(i)}">${nf(v)}</td>`).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
+  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,i)=>cell(v,i,colTot)).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
   // cash rows straight from the ledger (unaffected by filters)
   const cash = [
     ["Opening balance", MONTHLY.map(m=>m.open)],
@@ -723,8 +742,9 @@ function renderMatrix(){
 
   document.querySelector("#mtx thead").innerHTML = head;
   document.querySelector("#mtx tbody").innerHTML = body + totRow + cash;
-  document.getElementById("mtxSub").textContent =
-    (state.cats.size||state.occ!=="all"||state.q)
+  document.getElementById("mtxSub").textContent = one>0
+    ? `Spend per category, all months \u00b7 figures in \u20b9 \u2014 ${MN[one]} column also compares vs ${MN[one-1]}`
+    : (state.cats.size||state.occ!=="all"||state.q)
       ? "Spend per category, all months \u2014 within the current category / type / search filter"
       : "Spend per category, all months \u00b7 figures in \u20b9";
 }
