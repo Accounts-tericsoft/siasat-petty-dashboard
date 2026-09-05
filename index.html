@@ -799,8 +799,9 @@ function renderCharts(fr){
     type:"line",
     data:{ labels:days.map(d=>d.slice(5)),
       datasets:[{data:days.map(d=>byDay[d]),borderColor:"#3f6fb5",backgroundColor:"#3f6fb5",
-        fill:false,tension:.3,borderWidth:1.6,pointRadius:days.length>45?0:2,pointHoverRadius:4}]},
+        fill:false,tension:.3,borderWidth:1.6,pointRadius:days.length>45?0:2,pointHoverRadius:5,pointHitRadius:20}]},
     options:{maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
       plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>i[0].label,label:c=>INR(c.raw)}}},
       scales:{x:{ticks:{maxTicksLimit:12},grid:{display:false}},y:{ticks:{callback:v=>"\u20b9"+(v/1000)+"k"}}}}
   });
