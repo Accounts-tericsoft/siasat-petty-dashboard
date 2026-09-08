@@ -162,6 +162,8 @@
   table.mtx tr.mtx-total td.mtx-pct{color:var(--ink2);font-weight:600}
   table.mtx .mtx-d{font-size:10px;font-weight:600;margin-top:1px;white-space:nowrap}
   table.mtx .mtx-d.up{color:var(--up)} table.mtx .mtx-d.down{color:var(--down)} table.mtx .mtx-d.flat{color:var(--muted)}
+  .mtx-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .mtx-toggle{display:flex;gap:6px;flex:none}
 
   /* flags */
   .flag-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -269,8 +271,13 @@
   </section>
 
   <section class="panel">
-    <h2>Month-by-month breakdown</h2>
-    <p class="h-sub" id="mtxSub"></p>
+    <div class="mtx-head">
+      <div><h2>Month-by-month breakdown</h2><p class="h-sub" id="mtxSub"></p></div>
+      <div class="mtx-toggle">
+        <button class="chip on" id="mtxMonth" type="button">By month</button>
+        <button class="chip" id="mtxQuarter" type="button">By quarter</button>
+      </div>
+    </div>
     <div class="tbl-scroll"><table id="mtx" class="mtx"><thead></thead><tbody></tbody></table></div>
   </section>
 
@@ -694,6 +701,19 @@ function renderFindings(fr){
 }
 
 /* ---------- month-by-month matrix ---------- */
+let mtxMode = "month";
+document.getElementById("mtxMonth").onclick = ()=>{
+  mtxMode="month";
+  document.getElementById("mtxMonth").classList.add("on");
+  document.getElementById("mtxQuarter").classList.remove("on");
+  renderMatrix();
+};
+document.getElementById("mtxQuarter").onclick = ()=>{
+  mtxMode="quarter";
+  document.getElementById("mtxQuarter").classList.add("on");
+  document.getElementById("mtxMonth").classList.remove("on");
+  renderMatrix();
+};
 function renderMatrix(){
   // reflects category / type / search filters, always shows all 9 months
   const pass = r => (state.cats.size ? state.cats.has(r[5]) : true)
@@ -701,17 +721,34 @@ function renderMatrix(){
     && (!state.q || r[2].toLowerCase().includes(state.q)||r[3].toLowerCase().includes(state.q));
   const grid = CATS.map(()=>MN.map(()=>0));
   ROWS.forEach(r=>{ if(pass(r)) grid[r[5]][r[0]]+=r[4]; });
-  const catRows = CATS.map((c,k)=>({c,k,vals:grid[k],tot:grid[k].reduce((s,v)=>s+v,0)}))
-                      .filter(x=>x.tot>0).sort((a,b)=>b.tot-a.tot);
-  const colTot = MN.map((_,i)=>catRows.reduce((s,r)=>s+r.vals[i],0));
+
+  const Q = [[0,1,2],[3,4,5],[6,7,8]];
+  const quarter = mtxMode==="quarter";
+  const cols = quarter ? ["Q1","Q2","Q3"] : MN;
+  const colM = quarter ? Q : MN.map((_,i)=>[i]);           // month indices each column spans
+  const aggM = (arr, ci) => colM[ci].reduce((s,mi)=>s+(arr[mi]||0),0);
+
+  const catRows = CATS.map((c,k)=>{
+    const vals = cols.map((_,ci)=>aggM(grid[k], ci));
+    return {c,k,vals,tot:vals.reduce((s,v)=>s+v,0)};
+  }).filter(x=>x.tot>0).sort((a,b)=>b.tot-a.tot);
+  const colTot = cols.map((_,ci)=>catRows.reduce((s,r)=>s+r.vals[ci],0));
   const grand = colTot.reduce((s,v)=>s+v,0);
   const nf = n => n? Math.round(n).toLocaleString("en-IN") : "\u2014";
-  const selC = i => state.months.size && state.months.has(i) ? " selcol" : "";
-  const one = state.months.size===1 ? [...state.months][0] : -1;
+  const colSel = ci => state.months.size && colM[ci].every(mi=>state.months.has(mi));
+  const selC = ci => colSel(ci) ? " selcol" : "";
 
-  const cell = (v, i, arr) => {
+  // one = index of the single fully-selected column (month, or quarter), for the vs-prev comparison
+  let one = -1;
+  if(quarter){
+    const sq = Q.map((ms,qi)=> state.months.size===3 && ms.every(mi=>state.months.has(mi)) ? qi : -1).filter(x=>x>=0);
+    if(sq.length===1) one = sq[0];
+  } else if(state.months.size===1){ one = [...state.months][0]; }
+  const cmpLabel = one>0 ? (quarter ? `Q${one}` : MN[one-1]) : "";
+
+  const cell = (v, ci, arr) => {
     let extra = "";
-    if(one>0 && i===one && arr){
+    if(one>0 && ci===one && arr){
       const prev = arr[one-1]||0;
       if(prev>0 || v>0){
         if(prev===0){ extra = `<div class="mtx-d up">\u2726 new</div>`; }
@@ -722,31 +759,37 @@ function renderMatrix(){
         }
       }
     }
-    return `<td class="${v?"":"zero"}${selC(i)}">${nf(v)}${extra}</td>`;
+    return `<td class="${v?"":"zero"}${selC(ci)}">${nf(v)}${extra}</td>`;
   };
 
-  const head = `<tr><th>Category</th>${MN.map((m,i)=>`<th class="${selC(i).trim()}">${m}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
+  const head = `<tr><th>Category</th>${cols.map((m,ci)=>`<th class="${colSel(ci)?"selcol":""}">${m}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
   const body = catRows.map(r=>
-    `<tr><td>${r.c}</td>${r.vals.map((v,i)=>cell(v,i,r.vals)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
+    `<tr><td>${r.c}</td>${r.vals.map((v,ci)=>cell(v,ci,r.vals)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
   ).join("");
-  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,i)=>cell(v,i,colTot)).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
-  // cash rows straight from the ledger (unaffected by filters)
-  const cash = [
-    ["Opening balance", MONTHLY.map(m=>m.open)],
-    ["Deposits in",     MONTHLY.map(m=>m.dep)],
-    ["Ledger spend",    MONTHLY.map(m=>m.spend)],
-    ["Closing balance", MONTHLY.map(m=>m.close)],
-  ].map((row,ri)=>
-    `<tr class="mtx-cash${ri===0?" first":""}"><td>${row[0]}</td>${row[1].map((v,i)=>`<td class="${selC(i)}">${nf(v)}</td>`).join("")}<td>\u2014</td><td>\u2014</td></tr>`
+  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,ci)=>cell(v,ci,colTot)).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
+
+  // cash rows: opening = first month of column; closing = last month; deposits/spend = summed
+  const first = ci => colM[ci][0], last = ci => colM[ci][colM[ci].length-1];
+  const cashRows = [
+    ["Opening balance", cols.map((_,ci)=>MONTHLY[first(ci)].open)],
+    ["Deposits in",     cols.map((_,ci)=>colM[ci].reduce((s,mi)=>s+MONTHLY[mi].dep,0))],
+    ["Ledger spend",    cols.map((_,ci)=>colM[ci].reduce((s,mi)=>s+MONTHLY[mi].spend,0))],
+    ["Closing balance", cols.map((_,ci)=>MONTHLY[last(ci)].close)],
+  ];
+  const cash = cashRows.map((row,ri)=>
+    `<tr class="mtx-cash${ri===0?" first":""}"><td>${row[0]}</td>${row[1].map((v,ci)=>`<td class="${selC(ci)}">${nf(v)}</td>`).join("")}<td>\u2014</td><td>\u2014</td></tr>`
   ).join("");
 
   document.querySelector("#mtx thead").innerHTML = head;
   document.querySelector("#mtx tbody").innerHTML = body + totRow + cash;
+  const base = quarter
+    ? "Spend per category by quarter (Q1 Jan\u2013Mar \u00b7 Q2 Apr\u2013Jun \u00b7 Q3 Jul\u2013Sep) \u00b7 figures in \u20b9"
+    : "Spend per category, all months \u00b7 figures in \u20b9";
   document.getElementById("mtxSub").textContent = one>0
-    ? `Spend per category, all months \u00b7 figures in \u20b9 \u2014 ${MN[one]} column also compares vs ${MN[one-1]}`
-    : (state.cats.size||state.occ!=="all"||state.q)
+    ? `${base} \u2014 ${cols[one]} column also compares vs ${cmpLabel}`
+    : (!quarter && (state.cats.size||state.occ!=="all"||state.q))
       ? "Spend per category, all months \u2014 within the current category / type / search filter"
-      : "Spend per category, all months \u00b7 figures in \u20b9";
+      : base;
 }
 
 /* ---------- charts ---------- */
