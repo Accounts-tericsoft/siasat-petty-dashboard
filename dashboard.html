@@ -146,6 +146,14 @@
   .pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px;font-size:12px;color:var(--ink2)}
   .pager button{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit}
   .pager button:disabled{opacity:.4;cursor:default}
+  #tbl .ex-clk{cursor:pointer;border-bottom:1px dashed transparent}
+  #tbl .ex-clk:hover{border-bottom-color:currentColor;color:var(--up)}
+  .ex-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 10px;font-size:12px}
+  .ex-bar .ex-lbl{color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}
+  .ex-chip{border:1px solid var(--up);background:var(--up-bg);color:var(--up);border-radius:999px;
+    padding:3px 9px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .ex-chip:hover{filter:brightness(.96)}
+  .ex-bar .ex-clr{background:none;border:none;color:var(--accent);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;padding:2px 4px}
 
   /* month-by-month matrix */
   table.mtx{font-size:12px}
@@ -290,8 +298,9 @@
   <section class="panel">
     <div class="tbl-tools">
       <div><h2 style="display:inline">Transactions</h2> <span class="h-sub" id="tblCount" style="display:inline"></span></div>
-      <div class="fsummary">Click a column to sort</div>
+      <div class="fsummary">Click a header to sort &middot; click a payee or category to exclude it</div>
     </div>
+    <div id="exBar" class="ex-bar" hidden></div>
     <div class="tbl-scroll">
       <table id="tbl">
         <thead><tr>
@@ -414,7 +423,7 @@ window.__logoData=null;
   });
 })();
 
-const state = { months:new Set(), cats:new Set(), occ:"all", q:"" };
+const state = { months:new Set(), cats:new Set(), occ:"all", q:"", exPay:new Set(), exCat:new Set() };
 
 /* ---------- filter bar build ---------- */
 const monthChipsEl = document.getElementById("monthChips");
@@ -465,6 +474,7 @@ document.getElementById("occSel").onchange=e=>{ state.occ=e.target.value; render
 document.getElementById("q").oninput=e=>{ state.q=e.target.value.trim().toLowerCase(); render(); };
 document.getElementById("reset").onclick=()=>{
   state.months.clear(); state.cats.clear(); state.occ="all"; state.q="";
+  state.exPay.clear(); state.exCat.clear();
   document.getElementById("occSel").value="all"; document.getElementById("q").value="";
   catMenu.querySelectorAll("input").forEach(i=>i.checked=false);
   syncChips(); syncCatBtn(); render();
@@ -479,6 +489,8 @@ function filtered(){
     if(state.occ==="d" && r[6]!=="d") return false;
     if(state.occ==="u" && r[6]!=="") return false;
     if(state.q && !(r[2].toLowerCase().includes(state.q) || r[3].toLowerCase().includes(state.q))) return false;
+    if(state.exCat.size && state.exCat.has(r[5])) return false;
+    if(state.exPay.size && state.exPay.has(canonPayee(r[2]))) return false;
     return true;
   });
 }
@@ -1101,18 +1113,42 @@ function drawTable(){
     return x<y?-1*sortDir:x>y?1*sortDir:0;
   });
   const slice=rs.slice(page*PAGE,(page+1)*PAGE);
+  const esc=s=>String(s).replace(/"/g,"&quot;");
   document.querySelector("#tbl tbody").innerHTML = slice.map(r=>`
     <tr>
       <td>${r[1]}</td>
-      <td>${r[2]}</td>
+      <td><span class="ex-clk" data-ex="p" data-v="${esc(canonPayee(r[2]))}" title="Exclude this payee">${r[2]}</span></td>
       <td class="pur">${r[3]}</td>
-      <td>${CATS[r[5]]}</td>
+      <td><span class="ex-clk" data-ex="c" data-v="${r[5]}" title="Exclude this category">${CATS[r[5]]}</span></td>
       <td class="num">${r[4].toLocaleString("en-IN")}</td>
     </tr>`).join("");
   const from=curRows.length?page*PAGE+1:0, to=Math.min((page+1)*PAGE,curRows.length);
   document.getElementById("pageInfo").textContent = `${from}\u2013${to} of ${curRows.length.toLocaleString("en-IN")}`;
   document.getElementById("prev").disabled = page===0;
   document.getElementById("next").disabled = (page+1)*PAGE>=curRows.length;
+}
+document.querySelector("#tbl tbody").addEventListener("click", e=>{
+  const s=e.target.closest(".ex-clk"); if(!s) return;
+  if(s.dataset.ex==="p") state.exPay.add(s.dataset.v);
+  else state.exCat.add(+s.dataset.v);
+  render();
+});
+function renderExBar(){
+  const bar=document.getElementById("exBar");
+  const items=[
+    ...[...state.exCat].map(k=>({t:"c",v:k,label:CATS[k]})),
+    ...[...state.exPay].map(v=>({t:"p",v,label:v})),
+  ];
+  if(!items.length){ bar.hidden=true; bar.innerHTML=""; return; }
+  bar.hidden=false;
+  bar.innerHTML = `<span class="ex-lbl">Excluding</span>` +
+    items.map(it=>`<button class="ex-chip" data-t="${it.t}" data-v="${String(it.v).replace(/"/g,"&quot;")}">${it.label} &times;</button>`).join("") +
+    `<button class="ex-clr" id="exClr">clear</button>`;
+  bar.querySelectorAll(".ex-chip").forEach(b=>b.onclick=()=>{
+    if(b.dataset.t==="p") state.exPay.delete(b.dataset.v); else state.exCat.delete(+b.dataset.v);
+    render();
+  });
+  document.getElementById("exClr").onclick=()=>{ state.exPay.clear(); state.exCat.clear(); render(); };
 }
 
 /* ---------- view tabs ---------- */
@@ -1214,13 +1250,15 @@ function render(){
   document.getElementById("fsummary").innerHTML =
     `<b>${fr.length.toLocaleString("en-IN")}</b> of ${ROWS.length.toLocaleString("en-IN")} entries &middot; ${mTxt} &middot; ${catTxt}`
     + (state.occ!=="all"?` &middot; ${state.occ==="r"?"recurring":state.occ==="d"?"dynamic":"untagged"}`:"")
-    + (state.q?` &middot; "${state.q}"`:"");
+    + (state.q?` &middot; "${state.q}"`:"")
+    + ((state.exPay.size||state.exCat.size)?` &middot; excl. ${[...[...state.exCat].map(k=>CATS[k]),...state.exPay].join(", ")}`:"");
   document.getElementById("tblCount").textContent = `\u2014 ${fr.length.toLocaleString("en-IN")} rows, ${INR(fr.reduce((s,r)=>s+r[4],0))}`;
   renderKPIs(fr);
   renderInsights();
   renderCharts(fr);
   renderMatrix();
   renderFindings(fr);
+  renderExBar();
   curRows=fr; page=0; drawTable();
 }
 render();
