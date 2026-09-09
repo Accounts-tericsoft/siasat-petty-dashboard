@@ -273,7 +273,7 @@
     </div>
     <div class="panel">
       <h2>Daily spend</h2>
-      <p class="h-sub">Every calendar day in range · <span style="color:#9aa3b0">●</span> Sunday / holiday · <span style="color:#d99a2b">●</span> no entries</p>
+      <p class="h-sub">Every calendar day in range · <span style="color:#9aa3b0">●</span> Sunday / holiday (₹0)</p>
       <div class="chart-h"><canvas id="cDaily"></canvas></div>
     </div>
   </section>
@@ -942,15 +942,15 @@ function renderCharts(fr){
       if(!has){
         if(dow===0) reason="Sunday \u2014 office closed";
         else if(HOLIDAYS[k]) reason=HOLIDAYS[k]+" \u2014 holiday";
-        else reason="no entries recorded";
+        else reason="Holiday";
       }
-      dMeta.push({wd:WD[dow], reason, closed: !has && (dow===0 || !!HOLIDAYS[k])});
+      dMeta.push({wd:WD[dow], reason, closed: !has});
       cur.setDate(cur.getDate()+1);
     }
   }
   const dDense = dLabels.length>45;
-  const dPR = dMeta.map(m => m.closed ? 3 : (m.reason ? 3 : (dDense?0:2.5)));
-  const dPC = dMeta.map(m => m.closed ? "#9aa3b0" : (m.reason ? "#d99a2b" : "#3f6fb5"));
+  const dPR = dMeta.map(m => m.closed ? 3 : (dDense?0:2.5));
+  const dPC = dMeta.map(m => m.closed ? "#9aa3b0" : "#3f6fb5");
   mk("cDaily",{
     type:"line",
     data:{ labels:dLabels,
