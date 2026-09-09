@@ -170,6 +170,12 @@
   table.mtx tr.mtx-total td.mtx-pct{color:var(--ink2);font-weight:600}
   table.mtx .mtx-d{font-size:10px;font-weight:600;margin-top:1px;white-space:nowrap}
   table.mtx .mtx-d.up{color:var(--up)} table.mtx .mtx-d.down{color:var(--down)} table.mtx .mtx-d.flat{color:var(--muted)}
+  table.mtx th.bmh span{display:block;font-weight:400;font-size:9px;letter-spacing:0;color:var(--muted);text-transform:none}
+  table.mtx td.bm{color:var(--ink2);background:#fbfbfc}
+  table.mtx td.bm.zero{color:var(--muted)}
+  table.mtx td.mtx-alert{background:var(--up-bg)}
+  table.mtx td.mtx-alert,table.mtx tr.mtx-total td.mtx-alert{color:var(--up);font-weight:700}
+  table.mtx .mtx-alert-tag{font-size:10px;font-weight:700;color:var(--up);margin-top:1px;white-space:nowrap}
   .mtx-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
   .mtx-toggle{display:flex;gap:6px;flex:none}
   table.mtx th .nmark{display:inline-block;margin-left:4px;color:var(--accent);font-weight:700;cursor:help}
@@ -803,12 +809,19 @@ function renderMatrix(){
   const colM = quarter ? Q : MN.map((_,i)=>[i]);           // month indices each column spans
   const aggM = (arr, ci) => colM[ci].reduce((s,mi)=>s+(arr[mi]||0),0);
 
+  // benchmark = a category's average monthly spend over Apr\u2013Aug; a month is flagged
+  // when it runs more than 15% above that benchmark (industry tolerance).
+  const BM_MONTHS = [3,4,5,6,7];              // Apr, May, Jun, Jul, Aug
+  const BM_LIMIT  = 1.15;                     // +15%
+  const bmOf = k => BM_MONTHS.reduce((s,mi)=>s+(grid[k][mi]||0),0) / BM_MONTHS.length;
+
   const catRows = CATS.map((c,k)=>{
     const vals = cols.map((_,ci)=>aggM(grid[k], ci));
-    return {c,k,vals,tot:vals.reduce((s,v)=>s+v,0)};
+    return {c,k,vals,tot:vals.reduce((s,v)=>s+v,0),bm:bmOf(k)};
   }).filter(x=>x.tot>0).sort((a,b)=>b.tot-a.tot);
   const colTot = cols.map((_,ci)=>catRows.reduce((s,r)=>s+r.vals[ci],0));
   const grand = colTot.reduce((s,v)=>s+v,0);
+  const bmTot = catRows.reduce((s,r)=>s+r.bm,0);
   const nf = n => n? Math.round(n).toLocaleString("en-IN") : "\u2014";
   const colSel = ci => state.months.size && colM[ci].every(mi=>state.months.has(mi));
   const selC = ci => colSel(ci) ? " selcol" : "";
@@ -821,7 +834,7 @@ function renderMatrix(){
   } else if(state.months.size===1){ one = [...state.months][0]; }
   const cmpLabel = one>0 ? (quarter ? `Q${one}` : MN[one-1]) : "";
 
-  const cell = (v, ci, arr) => {
+  const cell = (v, ci, arr, bm) => {
     let extra = "";
     if(one>0 && ci===one && arr){
       const prev = arr[one-1]||0;
@@ -834,7 +847,18 @@ function renderMatrix(){
         }
       }
     }
-    return `<td class="${v?"":"zero"}${selC(ci)}">${nf(v)}${extra}</td>`;
+    // benchmark alert: v is a column value (1 month, or 3 for a quarter); compare the
+    // per-month rate against benchmark + 15%
+    let alert = false;
+    if(bm>0){
+      const months = colM[ci].length, limit = bm*BM_LIMIT*months;
+      if(v > limit){
+        alert = true;
+        const over = (v/(bm*months) - 1)*100;
+        extra += `<div class="mtx-alert-tag" title="${nf(v)} vs Apr\u2013Aug benchmark ${nf(bm*months)} (+15% = ${nf(limit)})">\u26a0 +${over.toFixed(0)}%</div>`;
+      }
+    }
+    return `<td class="${v?"":"zero"}${selC(ci)}${alert?" mtx-alert":""}">${nf(v)}${extra}</td>`;
   };
 
   // per-month notes (from the sheet's Notes tab)
@@ -843,11 +867,15 @@ function renderMatrix(){
   const noteNo = {}; noteList.forEach((x,n)=>noteNo[x.i]=n+1);
   const hMark = ci => (!quarter && noteNo[ci]) ? `<sup class="nmark" title="${esc(noteList[noteNo[ci]-1].txt)}">${noteNo[ci]}</sup>` : "";
 
-  const head = `<tr><th>Category</th>${cols.map((m,ci)=>`<th class="${colSel(ci)?"selcol":""}">${m}${hMark(ci)}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
+  const bmCell = bm => bm>0
+    ? `<td class="bm" title="Average monthly spend Apr\u2013Aug; a month is flagged above +15% (${nf(bm*BM_LIMIT)})">${nf(bm)}</td>`
+    : `<td class="bm zero">\u2014</td>`;
+
+  const head = `<tr><th>Category</th><th class="bmh">Benchmark<span>Apr\u2013Aug avg</span></th>${cols.map((m,ci)=>`<th class="${colSel(ci)?"selcol":""}">${m}${hMark(ci)}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
   const body = catRows.map(r=>
-    `<tr><td>${r.c}</td>${r.vals.map((v,ci)=>cell(v,ci,r.vals)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
+    `<tr><td>${r.c}</td>${bmCell(r.bm)}${r.vals.map((v,ci)=>cell(v,ci,r.vals,r.bm)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
   ).join("");
-  const totRow = `<tr class="mtx-total"><td>Total spend</td>${colTot.map((v,ci)=>cell(v,ci,colTot)).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
+  const totRow = `<tr class="mtx-total"><td>Total spend</td>${bmCell(bmTot)}${colTot.map((v,ci)=>cell(v,ci,colTot,bmTot)).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
 
   // cash rows: opening = first month of column; closing = last month; deposits/spend = summed
   const first = ci => colM[ci][0], last = ci => colM[ci][colM[ci].length-1];
@@ -858,7 +886,7 @@ function renderMatrix(){
     ["Closing balance", cols.map((_,ci)=>MONTHLY[last(ci)].close)],
   ];
   const cash = cashRows.map((row,ri)=>
-    `<tr class="mtx-cash${ri===0?" first":""}"><td>${row[0]}</td>${row[1].map((v,ci)=>`<td class="${selC(ci)}">${nf(v)}</td>`).join("")}<td>\u2014</td><td>\u2014</td></tr>`
+    `<tr class="mtx-cash${ri===0?" first":""}"><td>${row[0]}</td><td class="bm zero">\u2014</td>${row[1].map((v,ci)=>`<td class="${selC(ci)}">${nf(v)}</td>`).join("")}<td>\u2014</td><td>\u2014</td></tr>`
   ).join("");
 
   document.querySelector("#mtx thead").innerHTML = head;
@@ -869,11 +897,12 @@ function renderMatrix(){
   const base = quarter
     ? "Spend per category by quarter (Q1 Jan\u2013Mar \u00b7 Q2 Apr\u2013Jun \u00b7 Q3 Jul\u2013Sep) \u00b7 figures in \u20b9"
     : "Spend per category, all months \u00b7 figures in \u20b9";
-  document.getElementById("mtxSub").textContent = one>0
+  const bmNote = " \u00b7 Benchmark = Apr\u2013Aug monthly average; \u26a0 marks a month running >15% above it";
+  document.getElementById("mtxSub").textContent = (one>0
     ? `${base} \u2014 ${cols[one]} column also compares vs ${cmpLabel}`
     : (!quarter && (state.cats.size||state.occ!=="all"||state.q))
       ? "Spend per category, all months \u2014 within the current category / type / search filter"
-      : base;
+      : base) + bmNote;
 }
 
 /* ---------- charts ---------- */
