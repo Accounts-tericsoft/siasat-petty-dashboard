@@ -273,7 +273,7 @@
     </div>
     <div class="panel">
       <h2>Daily spend</h2>
-      <p class="h-sub">Each recorded day in the filtered range</p>
+      <p class="h-sub">Every calendar day in range · <span style="color:#9aa3b0">●</span> Sunday / holiday · <span style="color:#d99a2b">●</span> no entries</p>
       <div class="chart-h"><canvas id="cDaily"></canvas></div>
     </div>
   </section>
@@ -913,20 +913,57 @@ function renderCharts(fr){
       plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.label+" "+INR(c.raw)+" ("+(c.raw/tot*100).toFixed(0)+"%)"}}}}
   });
 
-  // daily
+  // daily \u2014 continuous date axis so closed days (Sundays / holidays) show as a dip to zero
+  const HOLIDAYS = {
+    "2026-01-26":"Republic Day",
+    "2026-03-21":"Eid ul-Fitr",
+    "2026-05-01":"May Day",
+    "2026-05-28":"Eid al-Adha",
+    "2026-06-02":"Telangana Formation Day",
+    "2026-08-15":"Independence Day",
+    "2026-08-26":"Milad un-Nabi",
+  };
+  const WD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
   const byDay={};
   fr.forEach(r=>{ byDay[r[1]]=(byDay[r[1]]||0)+r[4]; });
-  const days=Object.keys(byDay).sort();
+  const present=Object.keys(byDay).sort();
+  const dLabels=[], dData=[], dMeta=[];
+  if(present.length){
+    const parse=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);};
+    const iso=dt=>dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+    let cur=parse(present[0]); const end=parse(present[present.length-1]);
+    while(cur<=end){
+      const k=iso(cur), dow=cur.getDay(), has=k in byDay;
+      dLabels.push(k.slice(5));
+      dData.push(byDay[k]||0);
+      let reason="";
+      if(!has){
+        if(dow===0) reason="Sunday \u2014 office closed";
+        else if(HOLIDAYS[k]) reason=HOLIDAYS[k]+" \u2014 holiday";
+        else reason="no entries recorded";
+      }
+      dMeta.push({wd:WD[dow], reason, closed: !has && (dow===0 || !!HOLIDAYS[k])});
+      cur.setDate(cur.getDate()+1);
+    }
+  }
+  const dDense = dLabels.length>45;
+  const dPR = dMeta.map(m => m.closed ? 3 : (m.reason ? 3 : (dDense?0:2.5)));
+  const dPC = dMeta.map(m => m.closed ? "#9aa3b0" : (m.reason ? "#d99a2b" : "#3f6fb5"));
   mk("cDaily",{
     type:"line",
-    data:{ labels:days.map(d=>d.slice(5)),
-      datasets:[{data:days.map(d=>byDay[d]),borderColor:"#3f6fb5",backgroundColor:"#3f6fb5",
-        fill:false,tension:.3,borderWidth:1.6,pointRadius:days.length>45?0:3,pointHoverRadius:6,pointHitRadius:30}]},
+    data:{ labels:dLabels,
+      datasets:[{data:dData,borderColor:"#3f6fb5",backgroundColor:"#3f6fb5",
+        fill:false,tension:.3,borderWidth:1.6,
+        pointRadius:dPR,pointBackgroundColor:dPC,pointBorderColor:dPC,
+        pointHoverRadius:6,pointHitRadius:30}]},
     options:{maintainAspectRatio:false,
       interaction:{mode:"index",intersect:false,axis:"x"},
       hover:{mode:"index",intersect:false,axis:"x"},
       plugins:{legend:{display:false},
-        tooltip:{mode:"index",intersect:false,axis:"x",callbacks:{title:i=>i[0].label,label:c=>INR(c.raw)}}},
+        tooltip:{mode:"index",intersect:false,axis:"x",callbacks:{
+          title:i=>{const m=dMeta[i[0].dataIndex]; return i[0].label+" \u00b7 "+(m?m.wd:"");},
+          label:c=>INR(c.raw),
+          afterLabel:c=>{const m=dMeta[c.dataIndex]; return m&&m.reason ? m.reason : "";}}}},
       scales:{x:{ticks:{maxTicksLimit:12},grid:{display:false}},y:{ticks:{callback:v=>"\u20b9"+(v/1000)+"k"}}}}
   });
 
