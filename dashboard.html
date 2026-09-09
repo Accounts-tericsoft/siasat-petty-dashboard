@@ -423,7 +423,12 @@ window.__logoData=null;
   });
 })();
 
-const state = { months:new Set(), cats:new Set(), occ:"all", q:"", exPay:new Set(), exCat:new Set() };
+// default month = the current calendar month if the ledger covers it, else the latest month with data
+const LAST_M = Math.max(...ROWS.map(r=>r[0]));
+const _now = new Date();
+const DEF_MONTH = (_now.getFullYear()===2026 && _now.getMonth()<=LAST_M) ? _now.getMonth() : LAST_M;
+
+const state = { months:new Set([DEF_MONTH]), cats:new Set(), occ:"all", q:"", exPay:new Set(), exCat:new Set() };
 
 /* ---------- filter bar build ---------- */
 const monthChipsEl = document.getElementById("monthChips");
@@ -473,7 +478,8 @@ document.addEventListener("click",e=>{ if(!e.target.closest(".catbox")) catMenu.
 document.getElementById("occSel").onchange=e=>{ state.occ=e.target.value; render(); };
 document.getElementById("q").oninput=e=>{ state.q=e.target.value.trim().toLowerCase(); render(); };
 document.getElementById("reset").onclick=()=>{
-  state.months.clear(); state.cats.clear(); state.occ="all"; state.q="";
+  state.months.clear(); state.months.add(DEF_MONTH);
+  state.cats.clear(); state.occ="all"; state.q="";
   state.exPay.clear(); state.exCat.clear();
   document.getElementById("occSel").value="all"; document.getElementById("q").value="";
   catMenu.querySelectorAll("input").forEach(i=>i.checked=false);
@@ -1261,6 +1267,7 @@ function render(){
   renderExBar();
   curRows=fr; page=0; drawTable();
 }
+syncChips();
 render();
 </script>
 </body>
