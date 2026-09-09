@@ -176,6 +176,25 @@
   table.mtx td.mtx-alert{background:var(--up-bg)}
   table.mtx td.mtx-alert,table.mtx tr.mtx-total td.mtx-alert{color:var(--up);font-weight:700}
   table.mtx .mtx-alert-tag{font-size:10px;font-weight:700;color:var(--up);margin-top:1px;white-space:nowrap}
+  table.mtx td[data-k]{cursor:pointer}
+  table.mtx td[data-k]:hover{box-shadow:inset 0 0 0 1px var(--accent)}
+  table.mtx td.has-cnote{position:relative}
+  table.mtx td.has-cnote::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;
+    border-radius:50%;background:var(--accent)}
+  .mtx-cnote-hint{margin:8px 0 0}
+  .cnote-pop{position:fixed;z-index:50;width:260px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;box-shadow:0 8px 28px rgba(20,28,45,.18);padding:10px}
+  .cnote-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;
+    font-size:12.5px;color:var(--ink);margin-bottom:6px}
+  .cnote-hd button{border:none;background:none;font-size:18px;line-height:1;cursor:pointer;color:var(--muted);padding:0 2px}
+  .cnote-pop textarea{width:100%;resize:vertical;min-height:56px;font:inherit;font-size:12px;padding:6px 8px;
+    border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink)}
+  .cnote-actions{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .cnote-save,.cnote-del{border:1px solid var(--line);border-radius:8px;padding:4px 12px;font:inherit;
+    font-size:12px;font-weight:600;cursor:pointer}
+  .cnote-save{background:var(--accent);border-color:var(--accent);color:#fff}
+  .cnote-del{background:var(--panel);color:var(--up)}
+  .cnote-hint{font-size:10.5px;color:var(--muted)}
   .mtx-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
   .mtx-toggle{display:flex;gap:6px;flex:none;align-items:center;flex-wrap:wrap}
   .mtx-bm-ctl{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;color:var(--ink2);
@@ -324,9 +343,20 @@
         <span class="mne-hint">Saved in this browser only — not visible to people you share the link with.</span>
       </div>
     </div>
+    <p class="h-sub mtx-cnote-hint">Tip: click any month cell (e.g. Aug · Salary) to add a note to it.</p>
     <div class="tbl-scroll"><table id="mtx" class="mtx"><thead></thead><tbody></tbody></table></div>
     <div id="mtxNotes" class="mtx-notes"></div>
   </section>
+
+  <div id="cnotePop" class="cnote-pop" hidden>
+    <div class="cnote-hd"><span id="cnoteTitle"></span><button id="cnoteX" type="button" aria-label="Close">×</button></div>
+    <textarea id="cnoteText" rows="3" placeholder="Note for this cell…"></textarea>
+    <div class="cnote-actions">
+      <button class="cnote-save" id="cnoteSave" type="button">Save</button>
+      <button class="cnote-del" id="cnoteDel" type="button">Delete</button>
+      <span class="cnote-hint">Saved in this browser only.</span>
+    </div>
+  </div>
 
   <section class="panel">
     <h2>Top payees</h2>
@@ -403,6 +433,13 @@ const BM_PCT_KEY = "siasat_mtx_bm_pct_v1";
 let bmPct = 15;
 try { const s = parseFloat(localStorage.getItem(BM_PCT_KEY)); if(s>=0 && s<=1000) bmPct = s; } catch(e){}
 function saveBmPct(){ try { localStorage.setItem(BM_PCT_KEY, String(bmPct)); } catch(e){} }
+
+// per-cell notes (category × month) for the breakdown — click a cell to edit; saved in this browser
+const CNOTE_KEY = "siasat_mtx_cellnotes_v1";
+let CELL_NOTES = {};
+try { CELL_NOTES = JSON.parse(localStorage.getItem(CNOTE_KEY) || "{}") || {}; } catch(e) { CELL_NOTES = {}; }
+function saveCellNotes(){ try { localStorage.setItem(CNOTE_KEY, JSON.stringify(CELL_NOTES)); } catch(e){} }
+const cnKey = (k,m) => k + ":" + m;
 const CATS = ["Salary","Office Expenses","Charity","Refreshment","General Service","Travel","Staff welfare","Repair","Delivery","Construction","Housekeeping"];
 const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep"];
 const CCOL = ["#3f6fb5","#e08a4c","#4c9d74","#c0504d","#8073b0","#8a7060","#d38bc4","#8f8f8f","#c9b56f","#5fb4c9","#a978a6"];
@@ -798,6 +835,52 @@ function applyBmPct(){
 bmPctInput.onchange = applyBmPct;
 bmPctInput.addEventListener("keydown", e=>{ if(e.key==="Enter"){ applyBmPct(); bmPctInput.blur(); } });
 
+/* ---------- per-cell notes popup (click a category×month cell) ---------- */
+const cnPop   = document.getElementById("cnotePop");
+const cnText  = document.getElementById("cnoteText");
+const cnTitle = document.getElementById("cnoteTitle");
+let cnCur = null;   // {k, m}
+function closeCnote(){ cnPop.hidden = true; cnCur = null; }
+function openCnote(k, m, td){
+  cnCur = {k, m};
+  cnTitle.textContent = MN[m] + " · " + CATS[k];
+  cnText.value = CELL_NOTES[cnKey(k,m)] || "";
+  cnPop.hidden = false;
+  // position near the cell, clamped to the viewport
+  const r = td.getBoundingClientRect(), pw = 260, ph = cnPop.offsetHeight || 150;
+  let left = r.left, top = r.bottom + 6;
+  if(left + pw > innerWidth - 8) left = innerWidth - 8 - pw;
+  if(left < 8) left = 8;
+  if(top + ph > innerHeight - 8) top = r.top - ph - 6;
+  top = Math.min(Math.max(8, top), Math.max(8, innerHeight - ph - 8));
+  cnPop.style.left = left + "px";
+  cnPop.style.top  = top + "px";
+  cnText.focus();
+}
+document.querySelector("#mtx tbody").addEventListener("click", e=>{
+  const td = e.target.closest("td[data-k]");
+  if(!td) return;
+  openCnote(+td.dataset.k, +td.dataset.m, td);
+});
+document.getElementById("cnoteSave").onclick = ()=>{
+  if(!cnCur) return;
+  const t = cnText.value.trim();
+  if(t) CELL_NOTES[cnKey(cnCur.k, cnCur.m)] = t;
+  else  delete CELL_NOTES[cnKey(cnCur.k, cnCur.m)];
+  saveCellNotes(); closeCnote(); renderMatrix();
+};
+document.getElementById("cnoteDel").onclick = ()=>{
+  if(!cnCur) return;
+  delete CELL_NOTES[cnKey(cnCur.k, cnCur.m)];
+  saveCellNotes(); closeCnote(); renderMatrix();
+};
+document.getElementById("cnoteX").onclick = closeCnote;
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !cnPop.hidden) closeCnote(); });
+document.addEventListener("mousedown", e=>{
+  if(!cnPop.hidden && !cnPop.contains(e.target) && !e.target.closest("#mtx td[data-k]")) closeCnote();
+});
+addEventListener("resize", closeCnote);
+
 /* ---------- month notes editor (browser-local) ---------- */
 const mneWrap = document.getElementById("mtxNotesEdit");
 const mneBtn  = document.getElementById("mtxNotesBtn");
@@ -861,7 +944,7 @@ function renderMatrix(){
   } else if(state.months.size===1){ one = [...state.months][0]; }
   const cmpLabel = one>0 ? (quarter ? `Q${one}` : MN[one-1]) : "";
 
-  const cell = (v, ci, arr, bm) => {
+  const cell = (v, ci, arr, bm, k) => {
     let extra = "";
     if(one>0 && ci===one && arr){
       const prev = arr[one-1]||0;
@@ -885,7 +968,13 @@ function renderMatrix(){
         extra += `<div class="mtx-alert-tag" title="${nf(v)} vs Apr\u2013Aug benchmark ${nf(bm*months)} (+${bmPct}% = ${nf(limit)})">\u26a0 +${over.toFixed(0)}%</div>`;
       }
     }
-    return `<td class="${v?"":"zero"}${selC(ci)}${alert?" mtx-alert":""}">${nf(v)}${extra}</td>`;
+    let cn = "", cnAttr = "";
+    if(!quarter && k!=null){
+      cnAttr = ` data-k="${k}" data-m="${ci}"`;
+      const t = (CELL_NOTES[cnKey(k,ci)]||"").trim();
+      if(t){ cn = " has-cnote"; cnAttr += ` title="Note: ${String(t).replace(/"/g,"&quot;")}"`; }
+    }
+    return `<td class="${v?"":"zero"}${selC(ci)}${alert?" mtx-alert":""}${cn}"${cnAttr}>${nf(v)}${extra}</td>`;
   };
 
   // per-month notes (from the sheet's Notes tab)
@@ -900,7 +989,7 @@ function renderMatrix(){
 
   const head = `<tr><th>Category</th><th class="bmh">Benchmark<span>Apr\u2013Aug avg</span></th>${cols.map((m,ci)=>`<th class="${colSel(ci)?"selcol":""}">${m}${hMark(ci)}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
   const body = catRows.map(r=>
-    `<tr><td>${r.c}</td>${bmCell(r.bm)}${r.vals.map((v,ci)=>cell(v,ci,r.vals,r.bm)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
+    `<tr><td>${r.c}</td>${bmCell(r.bm)}${r.vals.map((v,ci)=>cell(v,ci,r.vals,r.bm,r.k)).join("")}<td>${nf(r.tot)}</td><td class="mtx-pct">${grand?(r.tot/grand*100).toFixed(1):"0.0"}%</td></tr>`
   ).join("");
   const totRow = `<tr class="mtx-total"><td>Total spend</td>${bmCell(bmTot)}${colTot.map((v,ci)=>cell(v,ci,colTot,bmTot)).join("")}<td>${nf(grand)}</td><td class="mtx-pct">100%</td></tr>`;
 
