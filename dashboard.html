@@ -177,7 +177,12 @@
   table.mtx td.mtx-alert,table.mtx tr.mtx-total td.mtx-alert{color:var(--up);font-weight:700}
   table.mtx .mtx-alert-tag{font-size:10px;font-weight:700;color:var(--up);margin-top:1px;white-space:nowrap}
   .mtx-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
-  .mtx-toggle{display:flex;gap:6px;flex:none}
+  .mtx-toggle{display:flex;gap:6px;flex:none;align-items:center;flex-wrap:wrap}
+  .mtx-bm-ctl{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;color:var(--ink2);
+    border:1px solid var(--line);border-radius:8px;padding:3px 8px;white-space:nowrap}
+  .mtx-bm-ctl input{width:42px;border:none;background:transparent;font:inherit;font-size:12px;font-weight:700;
+    color:var(--accent);text-align:right;padding:0 1px;margin:0 1px}
+  .mtx-bm-ctl input:focus{outline:1px solid var(--accent);border-radius:4px}
   table.mtx th .nmark{display:inline-block;margin-left:4px;color:var(--accent);font-weight:700;cursor:help}
   .mtx-notes{margin-top:12px;display:grid;gap:7px}
   .mtx-notes:empty{display:none}
@@ -305,6 +310,7 @@
     <div class="mtx-head">
       <div><h2>Month-by-month breakdown</h2><p class="h-sub" id="mtxSub"></p></div>
       <div class="mtx-toggle">
+        <span class="mtx-bm-ctl">Alert at benchmark +<input id="mtxBmPct" type="number" min="0" max="500" step="1" inputmode="numeric">%</span>
         <button class="chip on" id="mtxMonth" type="button">By month</button>
         <button class="chip" id="mtxQuarter" type="button">By quarter</button>
         <button class="chip" id="mtxNotesBtn" type="button">✎ Notes</button>
@@ -391,6 +397,12 @@ const NOTES_KEY = "siasat_mtx_notes_v1";
 let NOTES = {};
 try { NOTES = JSON.parse(localStorage.getItem(NOTES_KEY) || "{}") || {}; } catch(e) { NOTES = {}; }
 function saveNotes(){ try { localStorage.setItem(NOTES_KEY, JSON.stringify(NOTES)); } catch(e){} }
+
+// benchmark alert tolerance (%), editable in-page, saved in this browser
+const BM_PCT_KEY = "siasat_mtx_bm_pct_v1";
+let bmPct = 15;
+try { const s = parseFloat(localStorage.getItem(BM_PCT_KEY)); if(s>=0 && s<=1000) bmPct = s; } catch(e){}
+function saveBmPct(){ try { localStorage.setItem(BM_PCT_KEY, String(bmPct)); } catch(e){} }
 const CATS = ["Salary","Office Expenses","Charity","Refreshment","General Service","Travel","Staff welfare","Repair","Delivery","Construction","Housekeeping"];
 const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep"];
 const CCOL = ["#3f6fb5","#e08a4c","#4c9d74","#c0504d","#8073b0","#8a7060","#d38bc4","#8f8f8f","#c9b56f","#5fb4c9","#a978a6"];
@@ -771,6 +783,21 @@ document.getElementById("mtxQuarter").onclick = ()=>{
   renderMatrix();
 };
 
+/* ---------- benchmark tolerance control (browser-local) ---------- */
+const bmPctInput = document.getElementById("mtxBmPct");
+bmPctInput.value = bmPct;
+function applyBmPct(){
+  let v = parseFloat(bmPctInput.value);
+  if(!(v>=0)) v = 0;
+  if(v>500) v = 500;
+  bmPct = Math.round(v*10)/10;
+  bmPctInput.value = bmPct;
+  saveBmPct();
+  renderMatrix();
+}
+bmPctInput.onchange = applyBmPct;
+bmPctInput.addEventListener("keydown", e=>{ if(e.key==="Enter"){ applyBmPct(); bmPctInput.blur(); } });
+
 /* ---------- month notes editor (browser-local) ---------- */
 const mneWrap = document.getElementById("mtxNotesEdit");
 const mneBtn  = document.getElementById("mtxNotesBtn");
@@ -812,7 +839,7 @@ function renderMatrix(){
   // benchmark = a category's average monthly spend over Apr\u2013Aug; a month is flagged
   // when it runs more than 15% above that benchmark (industry tolerance).
   const BM_MONTHS = [3,4,5,6,7];              // Apr, May, Jun, Jul, Aug
-  const BM_LIMIT  = 1.15;                     // +15%
+  const BM_LIMIT  = 1 + bmPct/100;            // editable tolerance (default +15%)
   const bmOf = k => BM_MONTHS.reduce((s,mi)=>s+(grid[k][mi]||0),0) / BM_MONTHS.length;
 
   const catRows = CATS.map((c,k)=>{
@@ -848,14 +875,14 @@ function renderMatrix(){
       }
     }
     // benchmark alert: v is a column value (1 month, or 3 for a quarter); compare the
-    // per-month rate against benchmark + 15%
+    // per-month rate against benchmark + the editable tolerance
     let alert = false;
     if(bm>0){
       const months = colM[ci].length, limit = bm*BM_LIMIT*months;
       if(v > limit){
         alert = true;
         const over = (v/(bm*months) - 1)*100;
-        extra += `<div class="mtx-alert-tag" title="${nf(v)} vs Apr\u2013Aug benchmark ${nf(bm*months)} (+15% = ${nf(limit)})">\u26a0 +${over.toFixed(0)}%</div>`;
+        extra += `<div class="mtx-alert-tag" title="${nf(v)} vs Apr\u2013Aug benchmark ${nf(bm*months)} (+${bmPct}% = ${nf(limit)})">\u26a0 +${over.toFixed(0)}%</div>`;
       }
     }
     return `<td class="${v?"":"zero"}${selC(ci)}${alert?" mtx-alert":""}">${nf(v)}${extra}</td>`;
@@ -868,7 +895,7 @@ function renderMatrix(){
   const hMark = ci => (!quarter && noteNo[ci]) ? `<sup class="nmark" title="${esc(noteList[noteNo[ci]-1].txt)}">${noteNo[ci]}</sup>` : "";
 
   const bmCell = bm => bm>0
-    ? `<td class="bm" title="Average monthly spend Apr\u2013Aug; a month is flagged above +15% (${nf(bm*BM_LIMIT)})">${nf(bm)}</td>`
+    ? `<td class="bm" title="Average monthly spend Apr\u2013Aug; a month is flagged above +${bmPct}% (${nf(bm*BM_LIMIT)})">${nf(bm)}</td>`
     : `<td class="bm zero">\u2014</td>`;
 
   const head = `<tr><th>Category</th><th class="bmh">Benchmark<span>Apr\u2013Aug avg</span></th>${cols.map((m,ci)=>`<th class="${colSel(ci)?"selcol":""}">${m}${hMark(ci)}</th>`).join("")}<th>Total</th><th>%</th></tr>`;
@@ -897,7 +924,7 @@ function renderMatrix(){
   const base = quarter
     ? "Spend per category by quarter (Q1 Jan\u2013Mar \u00b7 Q2 Apr\u2013Jun \u00b7 Q3 Jul\u2013Sep) \u00b7 figures in \u20b9"
     : "Spend per category, all months \u00b7 figures in \u20b9";
-  const bmNote = " \u00b7 Benchmark = Apr\u2013Aug monthly average; \u26a0 marks a month running >15% above it";
+  const bmNote = ` \u00b7 Benchmark = Apr\u2013Aug monthly average; \u26a0 marks a month running >${bmPct}% above it`;
   document.getElementById("mtxSub").textContent = (one>0
     ? `${base} \u2014 ${cols[one]} column also compares vs ${cmpLabel}`
     : (!quarter && (state.cats.size||state.occ!=="all"||state.q))
