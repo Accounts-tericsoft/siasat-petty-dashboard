@@ -3,7 +3,9 @@
 Interactive single-page dashboard over the **siasat petty** Google Sheet (petty-cash
 ledger kept by the Siasat office and MJ), Jan–Sep 2026 — 3,668 transactions, ₹38.8 L.
 
-Open `dashboard.html` in any browser. No build step; Chart.js via CDN. All 3,668 rows
+The published `dashboard.html` is password-protected: it is AES-256-GCM encrypted
+and only decrypts in the browser after the correct password (PBKDF2 key derivation).
+The unencrypted build has no build step; Chart.js via CDN. All 3,668 rows
 and the monthly cash figures (opening / deposits / spend / closing) are embedded in the file.
 
 ## Dashboard / Forecast tabs
