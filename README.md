@@ -1,11 +1,11 @@
 # Siasat Petty Cash Dashboard
 
 Interactive single-page dashboard over the **siasat petty** Google Sheet (petty-cash
-ledger kept by the Siasat office and MJ), Jan–Oct 2026 — 4,037 transactions, ₹41.9 L.
+ledger kept by the Siasat office and MJ), Jan–Oct 2026 — 4,050 transactions, ₹42.0 L.
 
 The published `dashboard.html` is password-protected: it is AES-256-GCM encrypted
 and only decrypts in the browser after the correct password (PBKDF2 key derivation).
-The unencrypted build has no build step; Chart.js via CDN. All 4,037 rows
+The unencrypted build has no build step; Chart.js via CDN. All 4,050 rows
 and the monthly cash figures (opening / deposits / spend / closing) are embedded in the file.
 
 ## Dashboard / Forecast tabs
@@ -87,7 +87,7 @@ Zaheeruddin, Dept of post.
 ## Data integrity
 
 Every month reconciles: `opening + deposits − spend = closing`, and each month's closing
-equals the next month's opening. The Jan–Aug ledger total (₹37,81,263, Sep complete, Oct through the 7th) matches the sheet's
+equals the next month's opening. The Jan–Aug ledger total (₹37,81,263, Sep complete, Oct through the 8th) matches the sheet's
 own monthly "Spends" figures.
 
 *Internal — Tericsoft / Siasat accounts.*
